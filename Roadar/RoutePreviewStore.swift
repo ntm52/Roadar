@@ -74,7 +74,7 @@ final class RoutePreviewStore {
         guard let destination else { return }
         guard GuidanceEngine.accepts(location, at: .now), let location else {
             isWaitingForLocation = true
-            routeMessage = "Waiting for a recent, accurate location. Routes will appear automatically when the signal improves."
+            routeMessage = Self.locationWaitMessage(location, at: .now)
             return
         }
         isWaitingForLocation = false
@@ -98,5 +98,15 @@ final class RoutePreviewStore {
             routeMessage = "Couldn’t load routes. Check your connection or try another destination."
         }
         if routeID == id { isRouting = false }
+    }
+
+    static func locationWaitMessage(_ location: CLLocation?, at now: Date) -> String {
+        guard let location, CLLocationCoordinate2DIsValid(location.coordinate) else {
+            return "Finding your position for this route. Routes will appear automatically."
+        }
+        guard (-5...15).contains(now.timeIntervalSince(location.timestamp)) else {
+            return "Refreshing your previous position. Routes will appear when a fresh location arrives."
+        }
+        return "Improving location accuracy for this route. If you’re indoors, try moving near a window or outside."
     }
 }

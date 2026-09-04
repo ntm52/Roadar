@@ -66,6 +66,21 @@ References: [Apple model ownership](https://developer.apple.com/documentation/sw
 [UserDefaults and privacy](https://developer.apple.com/documentation/foundation/userdefaults),
 [required API reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype).
 
+## Stationary route preparation fix
+
+After physical-phone feedback that a previously located position left route
+previews waiting, route preparation now disables the movement-based GPS filter
+as soon as a destination is selected. Requesting routes also resumes location
+monitoring. This stays enabled through preview and guidance, then returns to the
+exploration distance filter when the destination/trip is cleared. Foreground and
+permission gates remain in force. Waiting messages now distinguish a missing fix,
+an old fix, and insufficient accuracy. Regression tests cover stationary
+preparation, restoration of exploration filtering, and age/accuracy messages.
+Physical-phone confirmation is still needed; Core Location timing is not guaranteed.
+
+Verification: simulator build and all 55 unit tests passed. Result bundle:
+`/tmp/RoadarAudit/Logs/Test/Test-Roadar-2026.09.04_19-17-44--0400.xcresult`.
+
 ## Remaining limitations
 
 Physical iPhone and passenger journeys remain necessary to assess real GPS,

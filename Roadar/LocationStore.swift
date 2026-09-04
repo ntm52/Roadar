@@ -7,6 +7,7 @@ final class LocationStore: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var isActive = false
     private var isNavigating = false
+    private var isPreparingRoute = false
     private var isDriving = false
     private(set) var authorization: CLAuthorizationStatus = .notDetermined
     private(set) var accuracy: CLAccuracyAuthorization = .fullAccuracy
@@ -45,9 +46,22 @@ final class LocationStore: NSObject, CLLocationManagerDelegate {
         updateDistanceFilter()
     }
 
+    func setPreparingRoute(_ preparing: Bool) {
+        isPreparingRoute = preparing
+        updateDistanceFilter()
+        // Starting standard updates also resumes acquisition after a pause.
+        // Keep them unfiltered until the destination is cleared or guidance takes over.
+        if preparing { updateMonitoring() }
+    }
+
+    static func distanceFilter(navigating: Bool, preparingRoute: Bool, driving: Bool) -> CLLocationDistance {
+        navigating || preparingRoute ? kCLDistanceFilterNone : (driving ? 10 : 5)
+    }
+
     private func updateDistanceFilter() {
         // Arrival requires distinct fixes even when the user has stopped at the endpoint.
-        manager.distanceFilter = isNavigating ? kCLDistanceFilterNone : (isDriving ? 10 : 5)
+        manager.distanceFilter = Self.distanceFilter(navigating: isNavigating,
+            preparingRoute: isPreparingRoute, driving: isDriving)
     }
 
     private func refreshAuthorization() {

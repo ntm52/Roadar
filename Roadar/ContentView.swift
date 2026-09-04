@@ -106,6 +106,7 @@ struct ContentView: View {
         .onAppear {
             trip.setForeground(scenePhase == .active)
             location.setNavigating(trip.isActive)
+            location.setPreparingRoute(preview.destination != nil)
             location.setDriving(mode == .driving)
             location.setActive(scenePhase == .active)
             if location.isAuthorized { recenter() }
@@ -154,6 +155,9 @@ struct ContentView: View {
             location.setNavigating(active)
             if active { nearby.reset() }
             else { refreshNearby() }
+        }
+        .onChange(of: preview.destination != nil) { _, preparing in
+            location.setPreparingRoute(preparing)
         }
     }
 
@@ -443,6 +447,7 @@ struct ContentView: View {
     }
 
     private func loadRoutes() {
+        location.setPreparingRoute(preview.destination != nil)
         Task {
             await preview.preview(from: location.isAuthorized ? location.location : nil, driving: mode == .driving)
             fitRoute()
