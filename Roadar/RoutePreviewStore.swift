@@ -72,8 +72,7 @@ final class RoutePreviewStore {
     func preview(from location: CLLocation?, driving: Bool) async {
         clearRoutes()
         guard let destination else { return }
-        guard let location, abs(location.timestamp.timeIntervalSinceNow) <= 30,
-              location.horizontalAccuracy >= 0, location.horizontalAccuracy <= 100 else {
+        guard GuidanceEngine.accepts(location, at: .now), let location else {
             isWaitingForLocation = true
             routeMessage = "Waiting for a recent, accurate location. Routes will appear automatically when the signal improves."
             return

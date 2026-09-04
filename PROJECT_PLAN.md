@@ -1,7 +1,7 @@
 # Roadar project plan
 
 Created: 2026-09-03  
-Status: Phase 5 Southern Michigan offline road context implemented; first package built (83.9 MB download / 182.6 MB installed), file import and public GitHub download verified. MDOT work-zone connection prototype implemented; authenticated live refresh and full downloaded-payload decoding verified; full Phase 5 road relevance and physical acceptance remain. Phase 4 foreground guidance prototype is implemented and simulator-checked; integrated journeys and physical-device acceptance remain.
+Status: Phase 5 accepted by the user as substantially complete on September 4, 2026. Phase 6 is now active; Apple CarPlay navigation approval is pending and is not configured in the project. Continue app reliability and shared-state work while awaiting approval. Physical journeys, broader road relevance, and coverage limitations remain recorded acceptance debt rather than gates to starting Phase 6. The interface redesign is implemented and pushed.
 
 Purpose: Shared product plan and durable handoff between development sessions.
 
@@ -171,9 +171,9 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ## Session handoff — update before ending each work session
 
-**Last completed session:** Southern Michigan data release published and in-app download verified, September 4, 2026. See [PHASE_5_OFFLINE_ROADS.md](PHASE_5_OFFLINE_ROADS.md) for the newest checkpoint; the MDOT notes below describe the preceding checkpoint.
+**Last completed session:** Interface redesign committed and pushed as `8d05482`; all 45 unit tests passed again during the status audit. The current reliability audit and subsequent development are documented in [PHASE_6_FOUNDATION.md](PHASE_6_FOUNDATION.md).
 
-**Current phase:** Phase 5 — Live road information. User selected OSM regional downloads, initially Lansing and south with a northern buffer; additional incident sources deferred. Offline road context and the first public download are built and simulator-verified; physical-device acceptance remains. Continue in order; CarPlay is phase 6. UI redesign preserving functionality remains requested and pending.
+**Current phase:** Phase 6 — CarPlay preparation. User explicitly accepted Phase 5 as basically done and authorized fixing the app, verifying, committing and pushing, then continuing development that is not blocked by CarPlay approval. Apple approval has not been granted; no approval is inferred from Developer Program membership. Additional incident sources remain deferred. Physical acceptance and incomplete road relevance are tracked limitations.
 
 **Completed:** Southern Michigan road package, streaming validated Files import, persistent local storage/removal, conservative offline road matching and explicit directional speed limits. The package is 83.9 MB compressed / 182.6 MB installed. Existing authenticated MDOT work zones remain separate. Additional incident sources are deferred. No paid service, map SDK or account enabled.
 
@@ -183,7 +183,7 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 **Unresolved:** Public downloading and Files import work. About 18.2% of included road distance has usable explicit limits. Close/stacked roads and weak location remain ambiguous, and the new local matcher does not make existing MDOT geometry candidates confirmed road matches. Physical journeys and integrated reroute acceptance remain. No offline basemap/search/routing or spoken hazard alerts; guidance is foreground-only.
 
-**Next concrete action:** Perform physical-device and MDOT route-relevance acceptance, including ahead-of-driver filtering without a destination and reliable work-zone road identity. Do not advance to CarPlay yet.
+**Next concrete action:** Complete the reliability audit and prepare shared app state and persistent route preferences while the user requests CarPlay navigation approval. Once approved, configure the App ID and signing capability, add CarPlay scenes, and test phone/car connection and disconnection. Road relevance and physical checks remain open but do not block this development sequence.
 
 **Implementation authorization:** User approved OSM-based southern Michigan downloadable road information, with future incident sources deferred. No additional spending authorized. User entered the MDOT key directly into the app; do not extract or print it. Prior commit/push authorization applied to the preceding MDOT checkpoint, already committed as `9a94618`. User explicitly approved public hosting of the package, manifest and license notice; these are published at https://github.com/ntm52/Roadar/releases/tag/roads-southern-michigan-2026-09-03. The release tag references the existing MDOT checkpoint. User subsequently authorized committing and pushing the offline app checkpoint.
 

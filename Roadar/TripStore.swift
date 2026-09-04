@@ -15,12 +15,20 @@ final class TripStore {
     private var driving = false
     private var foreground = true
     private var requestID = UUID()
-    private var directions: MKDirections?
+    private var directions: (any RouteCalculation)?
+    private let makeDirections: (MKDirections.Request) -> any RouteCalculation
+    private let clock: () -> Date
     private var lastRequest = Date.distantPast
     private var lastSwitch = Date.distantPast
     private var proposalOrigin: CLLocation?
     private var proposalDate: Date?
     var isActive: Bool { route != nil }
+
+    init(makeDirections: @escaping (MKDirections.Request) -> any RouteCalculation = { MKDirections(request: $0) },
+         clock: @escaping () -> Date = { .now }) {
+        self.makeDirections = makeDirections
+        self.clock = clock
+    }
 
     func start(route: MKRoute, destination: MKMapItem, driving: Bool, location: CLLocation?, at now: Date = .now) {
         guard GuidanceEngine.accepts(location, at: now), let location else {
@@ -56,16 +64,16 @@ final class TripStore {
             cancelRequest()
             proposal = nil
             engine?.invalidate()
-            message = "Guidance paused. Return to Roadar for a fresh location."
+            if isActive { message = "Guidance paused. Return to Roadar for a fresh location." }
         } else if isActive { message = nil }
     }
 
     func update(_ location: CLLocation?, at now: Date = .now) {
         guard isActive, foreground else { return }
         engine?.update(location, at: now)
-        if let origin = proposalOrigin, let location,
-           location.distance(from: origin) > 75 || now.timeIntervalSince(proposalDate ?? .distantPast) > 30 {
+        if proposal != nil, !proposalIsValid(location: location, at: now) {
             proposal = nil
+            message = "This alternative is out of date. Check routes again."
         }
         if engine?.state == .arrived {
             cancelRequest()
@@ -103,31 +111,33 @@ final class TripStore {
         request.transportType = driving ? .automobile : .walking
         request.requestsAlternateRoutes = true
         request.departureDate = now
-        let operation = MKDirections(request: request)
+        let operation = makeDirections(request)
         directions = operation
         isRefreshing = true
         message = recovery ? "Off route · Finding a new route…" : "Checking available routes…"
-        defer { if requestID == id { isRefreshing = false } }
+        defer { if requestID == id { isRefreshing = false; directions = nil } }
         do {
-            let response = try await operation.calculate()
+            let routes = try await operation.calculateRoutes()
+            let completedAt = clock()
             guard requestID == id, foreground, let current = engine, current.state != .arrived else { return }
             guard
-                  GuidanceEngine.accepts(current.lastFix, at: .now),
+                  GuidanceEngine.accepts(current.lastFix, at: completedAt),
                   let latest = current.lastFix, latest.distance(from: location) <= 75 else {
                 message = "Position changed during the route check. Waiting for a fresh check."; return
             }
-            guard let fastest = response.routes.min(by: { $0.expectedTravelTime < $1.expectedTravelTime }) else {
+            guard let fastest = routes.filter({ $0.expectedTravelTime.isFinite && $0.expectedTravelTime > 0 && GuidanceRoute($0).length > 0 })
+                .min(by: { $0.expectedTravelTime < $1.expectedTravelTime }) else {
                 message = "No replacement route available. Retry when connected."; return
             }
             if recovery && (forceRecovery || current.state == .offRoute) {
-                install(fastest, at: .now)
-                update(latest)
+                install(fastest, at: completedAt)
+                update(latest, at: completedAt)
                 message = "Route updated after leaving the previous route."
             } else if current.state == .following && policy.allows(current: current.remainingTime,
-                       candidate: fastest.expectedTravelTime, sinceSwitch: now.timeIntervalSince(lastSwitch)) {
+                       candidate: fastest.expectedTravelTime, sinceSwitch: completedAt.timeIntervalSince(lastSwitch)) {
                 proposal = fastest
                 proposalOrigin = location
-                proposalDate = .now
+                proposalDate = completedAt
                 message = "A potentially faster route is available. Savings compare with the current distance-based estimate."
             } else {
                 message = "Keeping your route. No alternative met the savings threshold and cooldown."
@@ -139,10 +149,7 @@ final class TripStore {
     }
 
     func acceptProposal(location: CLLocation?, at now: Date = .now) {
-        guard let proposal, let origin = proposalOrigin, let proposalDate,
-              GuidanceEngine.accepts(location, at: now), let location,
-              location.distance(from: origin) <= 75, now.timeIntervalSince(proposalDate) <= 30,
-              engine?.state == .following else {
+        guard let proposal, proposalIsValid(location: location, at: now), let location else {
             self.proposal = nil
             message = "This alternative is out of date. Check routes again."; return
         }
@@ -152,6 +159,13 @@ final class TripStore {
     }
 
     func keepRoute() { proposal = nil; message = "Keeping your selected route." }
+
+    private func proposalIsValid(location: CLLocation?, at now: Date) -> Bool {
+        guard foreground, let origin = proposalOrigin, let proposalDate,
+              GuidanceEngine.accepts(location, at: now), let location,
+              engine?.state == .following else { return false }
+        return location.distance(from: origin) <= 75 && (0...30).contains(now.timeIntervalSince(proposalDate))
+    }
 
     private func install(_ route: MKRoute, at now: Date) {
         self.route = route

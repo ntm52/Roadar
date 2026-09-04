@@ -73,7 +73,7 @@ struct ReroutePolicy {
     var cooldown = 120.0
 
     func allows(current: TimeInterval, candidate: TimeInterval, sinceSwitch: TimeInterval) -> Bool {
-        current > 0 && candidate > 0 && sinceSwitch >= cooldown &&
+        current.isFinite && candidate.isFinite && current > 0 && candidate > 0 && sinceSwitch >= cooldown &&
         current - candidate >= minimumSecondsSaved &&
         (current - candidate) / current >= minimumFractionSaved
     }
@@ -103,7 +103,8 @@ struct GuidanceEngine {
 
     static func accepts(_ fix: CLLocation?, at now: Date) -> Bool {
         guard let fix else { return false }
-        return now.timeIntervalSince(fix.timestamp) >= -5 && now.timeIntervalSince(fix.timestamp) <= 15 &&
+        return CLLocationCoordinate2DIsValid(fix.coordinate) &&
+            now.timeIntervalSince(fix.timestamp) >= -5 && now.timeIntervalSince(fix.timestamp) <= 15 &&
             fix.horizontalAccuracy >= 0 && fix.horizontalAccuracy <= 35
     }
 

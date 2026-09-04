@@ -100,6 +100,7 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            trip.setForeground(scenePhase == .active)
             location.setDriving(mode == .driving)
             location.setActive(scenePhase == .active)
             if location.isAuthorized { recenter() }
@@ -143,6 +144,11 @@ struct ContentView: View {
             if newMode == .driving { nearby.reset() } else { refreshNearby() }
             if preview.destination != nil { loadRoutes() }
             else if !position.positionedByUser { followLocation() }
+        }
+        .onChange(of: trip.isActive) { _, active in
+            location.setNavigating(active)
+            if active { nearby.reset() }
+            else { refreshNearby() }
         }
     }
 

@@ -22,7 +22,7 @@ struct RoadarTests {
     }
 
     @Test func staleAndInaccurateLocationsDoNotRequestRoutes() async {
-        for (age, accuracy) in [(60.0, 10.0), (0.0, 500.0), (0.0, -1.0)] {
+        for (age, accuracy) in [(60.0, 10.0), (20.0, 10.0), (-10.0, 10.0), (0.0, 50.0), (0.0, 500.0), (0.0, -1.0)] {
             let store = RoutePreviewStore()
             store.select(place())
             let location = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 42.28, longitude: -83.74), altitude: 0,

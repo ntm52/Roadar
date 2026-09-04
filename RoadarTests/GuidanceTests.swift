@@ -94,6 +94,17 @@ struct GuidanceTests {
         #expect(policy.allows(current: 600, candidate: 500, sinceSwitch: 120))
         #expect(!policy.allows(current: 500, candidate: 600, sinceSwitch: 240))
         #expect(!policy.allows(current: 0, candidate: 0, sinceSwitch: 240))
+        #expect(!policy.allows(current: .infinity, candidate: 100, sinceSwitch: 240))
+    }
+
+    @Test func invalidCoordinatesCannotStartOrAdvanceGuidance() {
+        let invalid = CLLocation(coordinate: .init(latitude: 100, longitude: -83), altitude: 0,
+            horizontalAccuracy: 5, verticalAccuracy: 5, timestamp: now)
+        #expect(!GuidanceEngine.accepts(invalid, at: now))
+        var trip = engine()
+        trip.update(invalid, at: now)
+        #expect(trip.state == .uncertain)
+        #expect(trip.progress == 0)
     }
 
     @Test func backgroundInvalidationResetsOffRouteEvidence() {

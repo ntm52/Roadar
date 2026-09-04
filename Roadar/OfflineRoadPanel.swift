@@ -10,6 +10,7 @@ struct OfflineRoadPanel: View {
             Label("OFFLINE ROAD CONTEXT", systemImage: "map")
                 .font(.caption2.weight(.bold)).tracking(1).foregroundStyle(RoadarTheme.accent)
             TimelineView(.periodic(from: .now, by: 5)) { context in
+                VStack(alignment: .leading, spacing: 6) {
                 let fresh = store.match.timestamp.map { context.date.timeIntervalSince($0) <= 15 } ?? false
                 Text(fresh ? (store.match.road ?? "Road uncertain") : "Road uncertain")
                     .font(.title2.bold())
@@ -17,6 +18,7 @@ struct OfflineRoadPanel: View {
                     .font(.subheadline)
                 Text(!fresh && store.match.road != nil ? "Waiting for a fresh location." : store.match.message)
                     .font(.caption).foregroundStyle(.secondary)
+                }
             }
             HStack {
                 if store.region != nil { Text("© OpenStreetMap contributors").font(.caption2).foregroundStyle(.secondary) }
