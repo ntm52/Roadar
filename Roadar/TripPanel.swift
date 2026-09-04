@@ -9,12 +9,15 @@ struct TripPanel: View {
     @State private var showsSettings = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text(trip.engine?.state == .arrived ? "Arrived" : "To \(trip.destination?.name ?? "destination")")
                     .font(.headline).lineLimit(1)
                 Spacer()
                 Button(trip.engine?.state == .arrived ? "Done" : "End trip", action: onEnd)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(trip.engine?.state == .arrived ? RoadarTheme.accent : Color(red: 1, green: 0.57, blue: 0.52))
+                    .frame(minHeight: 44)
                     .accessibilityIdentifier("endGuidance")
             }
             if let engine = trip.engine {
@@ -27,9 +30,9 @@ struct TripPanel: View {
                     Label("Off route · Waiting for a replacement route", systemImage: "arrow.triangle.turn.up.right.diamond")
                 case .following:
                     if let maneuver = engine.nextManeuver {
-                        Text(maneuver.instruction).font(.title3.bold()).lineLimit(3)
+                        Text(maneuver.instruction).font(.title2.bold()).lineLimit(3)
                         Text(max(0, maneuver.distance - engine.progress) < 15 ? "Now" : "In \(distance(maneuver.distance - engine.progress))")
-                            .font(.subheadline)
+                            .font(.title3.weight(.semibold)).foregroundStyle(RoadarTheme.accent)
                     } else {
                         Text("Continue to the route endpoint").font(.title3.bold())
                     }
@@ -52,7 +55,7 @@ struct TripPanel: View {
                     .font(.subheadline)
                 HStack {
                     Button("Use alternative") { trip.acceptProposal(location: location) }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(RoadarPrimaryButtonStyle())
                     Button("Keep route") { trip.keepRoute() }
                 }
             }
@@ -63,7 +66,7 @@ struct TripPanel: View {
                     }
                         .disabled(trip.isRefreshing || !GuidanceEngine.accepts(location, at: .now))
                     Spacer()
-                    Button { showsSettings = true } label: { Image(systemName: "slider.horizontal.3") }
+                    Button { showsSettings = true } label: { Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44) }
                         .accessibilityLabel("Reroute policy")
                 }.font(.subheadline)
             }
@@ -79,6 +82,7 @@ struct TripPanel: View {
                     Text("Both savings thresholds must pass. Alternatives require your selection. Confirmed off-route recovery chooses the fastest returned route and retries no more than every 30 seconds. Settings apply for this app session.")
                     Text("Apple supplies the available routes. Remaining ETA is estimated from distance and the route’s original travel time; it is not continuously refreshed traffic data.")
                 }
+                .roadarSheet()
                 .navigationTitle("Route policy")
                 .toolbar { Button("Done") { showsSettings = false } }
             }

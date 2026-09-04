@@ -11,6 +11,7 @@ final class RoutePreviewStore {
     var selectedRoute = 0
     private(set) var isSearching = false
     private(set) var isRouting = false
+    private(set) var isWaitingForLocation = false
     private(set) var searchMessage: String?
     private(set) var routeMessage: String?
     private var search: MKLocalSearch?
@@ -59,6 +60,7 @@ final class RoutePreviewStore {
         routes = []
         selectedRoute = 0
         isRouting = false
+        isWaitingForLocation = false
         routeMessage = nil
     }
 
@@ -72,9 +74,11 @@ final class RoutePreviewStore {
         guard let destination else { return }
         guard let location, abs(location.timestamp.timeIntervalSinceNow) <= 30,
               location.horizontalAccuracy >= 0, location.horizontalAccuracy <= 100 else {
-            routeMessage = "A recent, accurate location is needed to preview a route. Enable Precise Location or wait for a stronger signal, then retry."
+            isWaitingForLocation = true
+            routeMessage = "Waiting for a recent, accurate location. Routes will appear automatically when the signal improves."
             return
         }
+        isWaitingForLocation = false
         let id = routeID
         let request = MKDirections.Request()
         request.source = MKMapItem(location: location, address: nil)

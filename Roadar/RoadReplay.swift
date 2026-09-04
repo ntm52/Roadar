@@ -112,6 +112,7 @@ struct RoadReplayView: View {
                 }
                 .padding()
             }
+            .roadarSheet()
             .navigationTitle("Road replay")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

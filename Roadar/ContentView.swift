@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var offlineRoads = OfflineRoadStore()
     @State private var showsReplay = false
     @State private var showsSearch = false
+    @State private var showsRoadDetails = false
     @State private var visibleRegion = Self.startRegion
     @State private var mode: TravelMode = .walking
     @State private var followsHeading = false
@@ -31,6 +32,7 @@ struct ContentView: View {
     )
 
     var body: some View {
+        GeometryReader { geometry in
         Map(position: $position) {
             if location.isAuthorized { UserAnnotation() }
             if mode == .walking && preview.destination == nil {
@@ -38,8 +40,8 @@ struct ContentView: View {
                     Annotation(place.name ?? "Nearby place", coordinate: place.location.coordinate) {
                         Button { selectPlace(place) } label: {
                             Image(systemName: "mappin.circle.fill")
-                                .font(.title2).foregroundStyle(.teal)
-                                .padding(4).background(.regularMaterial, in: Circle())
+                                .font(.title2).foregroundStyle(RoadarTheme.accent)
+                                .padding(5).background(RoadarTheme.surface, in: Circle())
                         }
                         .accessibilityLabel("\(place.name ?? "Place"), \(NearbyPlacesStore.category(for: place))")
                     }
@@ -50,11 +52,11 @@ struct ContentView: View {
                     .tint(.orange)
             }
             if let route = trip.route {
-                MapPolyline(route.polyline).stroke(.teal, lineWidth: 7)
+                MapPolyline(route.polyline).stroke(RoadarTheme.accent, lineWidth: 7)
             }
             ForEach(Array((trip.isActive ? [] : preview.routes).enumerated()), id: \.offset) { index, route in
                 MapPolyline(route.polyline)
-                    .stroke(index == preview.selectedRoute ? .teal : .gray.opacity(0.5), lineWidth: index == preview.selectedRoute ? 7 : 4)
+                    .stroke(index == preview.selectedRoute ? RoadarTheme.accent : .gray.opacity(0.5), lineWidth: index == preview.selectedRoute ? 7 : 4)
             }
         }
         .mapStyle(.standard(
@@ -64,16 +66,25 @@ struct ContentView: View {
         ))
         .mapControls { MapScaleView() }
         .onMapCameraChange(frequency: .onEnd) { visibleRegion = $0.region }
-        .sheet(isPresented: $showsReplay) { RoadReplayView() }
         .sheet(isPresented: $showsSearch) {
             searchSheet
         }
+        .sheet(isPresented: $showsRoadDetails) { roadDetailsSheet }
         .safeAreaInset(edge: .top, spacing: 0) {
             header
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            controls
+            VStack(alignment: .trailing, spacing: 14) {
+                mapControls
+                controls(maxHeight: geometry.size.height * 0.46)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 10)
         }
+        }
+        .background(RoadarTheme.background)
+        .preferredColorScheme(.dark)
+        .tint(RoadarTheme.accent)
         .task { await offlineRoads.load() }
         .task {
             while !Task.isCancelled {
@@ -118,6 +129,7 @@ struct ContentView: View {
             trip.update(location.isAuthorized ? location.location : nil)
             offlineRoads.update(mode == .driving && scenePhase == .active && location.isAuthorized ? location.location : nil)
             if !position.positionedByUser && (preview.destination == nil || trip.isActive) { followLocation() }
+            if preview.isWaitingForLocation, preview.destination != nil { loadRoutes() }
             refreshNearby()
         }
         .onChange(of: location.heading) { _, _ in
@@ -135,28 +147,64 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Roadar").font(.title2.bold())
-                Text("Explore as you go")
-                    .font(.caption).foregroundStyle(.secondary)
+        VStack(spacing: 18) {
+            HStack(spacing: 10) {
+                Image(systemName: "location.north.circle.fill")
+                    .font(.system(size: 29)).foregroundStyle(RoadarTheme.accent)
+                Text("roadar").font(.system(.title, design: .rounded, weight: .bold)).tracking(-1)
+                Spacer()
+                Text(trip.isActive ? "GUIDANCE" : "EXPLORE")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
+                    .foregroundStyle(RoadarTheme.secondary)
             }
-            Spacer()
             Button { showsSearch = true } label: {
-                Label("Search", systemImage: "magnifyingglass")
+                HStack(spacing: 12) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(RoadarTheme.accent)
+                    Text(trip.isActive ? "Enjoy the journey" : "Where to?")
+                        .font(.body.weight(.medium)).foregroundStyle(.white)
+                    Spacer()
+                    if !trip.isActive {
+                        Image(systemName: "arrow.up.right").foregroundStyle(RoadarTheme.secondary)
+                    }
+                }
+                .padding(.horizontal, 18).frame(minHeight: 56)
+                .roadarSurface(radius: 20)
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("searchPlaces")
+            .accessibilityLabel("Search places and addresses")
             .disabled(trip.isActive)
-            Image(systemName: mode.symbol)
-                .font(.title2).foregroundStyle(.teal)
-                .accessibilityHidden(true)
         }
-        .padding()
-        .background(.regularMaterial)
+        .padding(.horizontal, 22).padding(.top, 10).padding(.bottom, 18)
+        .background {
+            LinearGradient(colors: [RoadarTheme.background, RoadarTheme.background.opacity(0.9), .clear],
+                           startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .top)
+        }
     }
 
-    private var controls: some View {
-        VStack(spacing: 12) {
+    private var mapControls: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            Button {
+                followsHeading.toggle()
+                recenter()
+            } label: {
+                Image(systemName: followsHeading ? "location.north.line.fill" : "safari")
+            }
+            .accessibilityLabel(followsHeading ? "Heading up" : "North up")
+            .accessibilityHint("Changes map orientation and resumes following your location")
+            .disabled(!location.isAuthorized)
+            Button(action: recenter) { Image(systemName: "location.fill") }
+                .accessibilityLabel("Recenter")
+                .accessibilityIdentifier("recenter")
+        }
+        .buttonStyle(RoadarIconButtonStyle())
+    }
+
+    private func controls(maxHeight: CGFloat) -> some View {
+        ScrollView {
+        VStack(alignment: .leading, spacing: 18) {
+            travelModePicker
             if trip.isActive {
                 TripPanel(trip: trip, location: location.location) {
                     trip.end()
@@ -170,40 +218,7 @@ struct ContentView: View {
             } else {
                 drivingPanel
             }
-            if mode == .driving {
-                OfflineRoadPanel(store: offlineRoads)
-                WorkZonePanel(store: workZones, location: location.isAuthorized ? location.location : nil, engine: trip.engine)
-            }
-            HStack(spacing: 12) {
-                Button {
-                    followsHeading.toggle()
-                    recenter()
-                } label: {
-                    Label(followsHeading ? "Heading up" : "North up",
-                          systemImage: followsHeading ? "location.north.line.fill" : "safari")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .accessibilityHint("Changes map orientation and resumes following your location")
-                .disabled(!location.isAuthorized)
-
-                Button(action: recenter) {
-                    Label("Recenter", systemImage: "location.fill")
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-                .accessibilityIdentifier("recenter")
-            }
-            .buttonStyle(.bordered)
-            .tint(.teal)
-
-            Picker("Travel mode", selection: $mode) {
-                ForEach(TravelMode.allCases, id: \.self) { mode in
-                    Label(mode.rawValue, systemImage: mode.symbol).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("travelMode")
-            .disabled(trip.isActive)
-
+            if mode == .driving && (trip.isActive || preview.destination != nil) { roadDetailsButton }
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 if let message = location.status(at: context.date) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -212,20 +227,84 @@ struct ContentView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         if location.authorization == .notDetermined {
                             Button("Enable location", action: location.requestAccess)
+                                .buttonStyle(RoadarPrimaryButtonStyle())
                                 .accessibilityIdentifier("enableLocation")
                         } else if location.authorization == .denied || location.accuracy == .reducedAccuracy {
                             Button("Open Settings", action: openSettings)
+                                .buttonStyle(RoadarPrimaryButtonStyle())
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(trip.isActive ? "Foreground guidance · Keep Roadar open" : preview.destination != nil ? "Destination selected · Preview only" : (position.positionedByUser ? "Exploring map · Tap Recenter to follow" : "Minimap · No destination needed"))
-                        .font(.caption).foregroundStyle(.secondary)
+                    Label(trip.isActive ? "Keep Roadar open for guidance" : preview.destination != nil ? "Preview · Choose a route to begin" : (position.positionedByUser ? "Exploring · Recenter to follow" : "Explore freely. No destination needed."), systemImage: trip.isActive ? "location.fill" : "arrow.up.right")
+                        .font(.caption).foregroundStyle(RoadarTheme.secondary)
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial)
+        .padding(20)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: maxHeight)
+        .fixedSize(horizontal: false, vertical: true)
+        .roadarSurface()
+    }
+
+    private var travelModePicker: some View {
+        HStack(spacing: 4) {
+            ForEach(TravelMode.allCases, id: \.self) { option in
+                Button { mode = option } label: {
+                    Label(option.rawValue, systemImage: option.symbol)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .foregroundStyle(mode == option ? RoadarTheme.background : RoadarTheme.secondary)
+                        .background(mode == option ? RoadarTheme.accent : .clear, in: RoundedRectangle(cornerRadius: 13))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(option == .walking ? "walkingMode" : "drivingMode")
+                .accessibilityAddTraits(mode == option ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(RoadarTheme.background, in: RoundedRectangle(cornerRadius: 17))
+        .disabled(trip.isActive)
+    }
+
+    private var roadDetailsButton: some View {
+        Button { showsRoadDetails = true } label: {
+            HStack {
+                Label("Road details", systemImage: "square.stack.3d.up")
+                Spacer()
+                Image(systemName: "arrow.up.right")
+            }
+            .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+        }
+        .accessibilityIdentifier("roadDetails")
+    }
+
+    private var roadDetailsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Know the road ahead.").font(.largeTitle.bold())
+                    Text("Offline road context and connected work-zone information, in one place.")
+                        .foregroundStyle(RoadarTheme.secondary)
+                    OfflineRoadPanel(store: offlineRoads).padding(20).roadarSurface(radius: 22)
+                    WorkZonePanel(store: workZones, location: location.isAuthorized ? location.location : nil, engine: trip.engine)
+                        .padding(20).roadarSurface(radius: 22)
+                    Button { showsReplay = true } label: {
+                        Label("Explore simulated road replay", systemImage: "play.circle")
+                            .frame(minHeight: 44)
+                    }
+                    .sheet(isPresented: $showsReplay) { RoadReplayView() }
+                }.padding(24)
+            }
+            .roadarSheet()
+            .navigationTitle("Road details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showsRoadDetails = false } } }
+        }
+        .preferredColorScheme(.dark)
+        .presentationDragIndicator(.visible)
     }
 
     private var searchSheet: some View {
@@ -238,8 +317,14 @@ struct ContentView: View {
                     Text(message).foregroundStyle(.secondary)
                 }
                 if preview.results.isEmpty && !preview.isSearching && preview.searchMessage == nil {
-                    Text("Search for a business, place, or address near the map.")
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 16) {
+                        Image(systemName: "location.magnifyingglass")
+                            .font(.system(size: 42, weight: .light)).foregroundStyle(RoadarTheme.accent)
+                        Text("Your next stop.").font(.title.bold())
+                        Text("Find a favorite spot, a new corner of town, or the way home.")
+                            .foregroundStyle(RoadarTheme.secondary)
+                    }
+                    .padding(.vertical, 28).listRowBackground(Color.clear)
                 }
                 ForEach(Array(preview.results.enumerated()), id: \.offset) { _, place in
                     Button {
@@ -254,7 +339,8 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("Find a place")
+            .roadarSheet()
+            .navigationTitle("Where to?")
             .searchable(text: $preview.query, prompt: "Places and addresses")
             .onSubmit(of: .search) {
                 Task { await preview.searchPlaces(in: visibleRegion) }
@@ -268,10 +354,10 @@ struct ContentView: View {
     }
 
     private func destinationPanel(_ destination: MKMapItem) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(destination.name ?? "Destination").font(.headline)
+                    Text(destination.name ?? "Destination").font(.title2.bold())
                     Text(destination.address?.fullAddress ?? "Address unavailable")
                         .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
@@ -279,7 +365,7 @@ struct ContentView: View {
                 Button {
                     preview.clearDestination()
                     if location.isAuthorized { recenter() }
-                } label: { Image(systemName: "xmark.circle.fill").font(.title2) }
+                } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                 .accessibilityLabel("Clear destination")
             }
             if let url = destination.url { Link("Place website", destination: url).font(.caption) }
@@ -300,8 +386,10 @@ struct ContentView: View {
                                     Text(route.name).font(.caption).lineLimit(1)
                                     Text(index == 0 ? "Fastest available" : "Alternative \(index)").font(.caption2)
                                 }
-                                .padding(10)
-                                .background(index == preview.selectedRoute ? Color.teal.opacity(0.18) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                                .padding(16)
+                                .foregroundStyle(index == preview.selectedRoute ? RoadarTheme.accent : RoadarTheme.secondary)
+                                .background(RoadarTheme.elevated, in: RoundedRectangle(cornerRadius: 16))
+                                .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(index == preview.selectedRoute ? RoadarTheme.accent : .clear))
                             }
                             .accessibilityAddTraits(index == preview.selectedRoute ? .isSelected : [])
                         }
@@ -317,17 +405,23 @@ struct ContentView: View {
                 Text(message).font(.caption).foregroundStyle(.secondary)
             }
             if let route = preview.activeRoute {
-                Button("Start guidance") {
+                Button("Navigate") {
                     trip.start(route: route, destination: destination, driving: mode == .driving,
                                location: location.isAuthorized ? location.location : nil)
                     if trip.isActive { followsHeading = true; recenter() }
                 }
-                .buttonStyle(.borderedProminent).tint(.teal)
+                .buttonStyle(RoadarPrimaryButtonStyle())
                 .accessibilityIdentifier("startGuidance")
             }
             if !preview.isRouting {
-                Button(preview.routes.isEmpty ? "Preview \(mode.rawValue.lowercased()) routes" : "Refresh routes", action: loadRoutes)
-                    .buttonStyle(.borderedProminent).tint(.teal)
+                if preview.routes.isEmpty {
+                    Button(preview.isWaitingForLocation ? "Waiting for location…" : "Show \(mode.rawValue.lowercased()) routes", action: loadRoutes)
+                        .buttonStyle(RoadarPrimaryButtonStyle())
+                        .accessibilityIdentifier("showRoutes")
+                } else {
+                    Button("Refresh routes", action: loadRoutes)
+                        .frame(minHeight: 44)
+                }
             }
         }
     }
@@ -384,9 +478,13 @@ struct ContentView: View {
     }
 
     private var nearbyPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Nearby on foot").font(.headline)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Around you").font(.title2.bold()).tracking(-0.5)
+                    Text("Good places. A short walk away.")
+                        .font(.caption).foregroundStyle(RoadarTheme.secondary)
+                }
                 Spacer()
                 Button { refreshNearby(force: true) } label: {
                     Image(systemName: "arrow.clockwise")
@@ -400,42 +498,62 @@ struct ContentView: View {
             if nearby.places.isEmpty && !nearby.isLoading && nearby.message == nil {
                 Text("Enable location to discover nearby places, or use Search.").font(.caption).foregroundStyle(.secondary)
             }
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
+            if !nearby.places.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
                     ForEach(Array(nearby.places.enumerated()), id: \.offset) { _, place in
                         Button { selectPlace(place) } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(place.name ?? "Place").font(.subheadline.bold()).lineLimit(1)
-                                Text(NearbyPlacesStore.category(for: place)).font(.caption)
-                                if let fix = location.location {
-                                    Text(Measurement(value: place.location.distance(from: fix), unit: UnitLength.meters)
-                                        .formatted(.measurement(width: .abbreviated, usage: .road))).font(.caption)
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Image(systemName: "mappin.and.ellipse").foregroundStyle(RoadarTheme.accent)
+                                    Spacer()
+                                    if let fix = location.location {
+                                        Text(Measurement(value: place.location.distance(from: fix), unit: UnitLength.meters)
+                                            .formatted(.measurement(width: .abbreviated, usage: .road)))
+                                            .font(.caption2.weight(.medium)).foregroundStyle(RoadarTheme.secondary)
+                                    }
                                 }
+                                Text(place.name ?? "Place").font(.subheadline.bold()).foregroundStyle(.white).lineLimit(1)
+                                Text(NearbyPlacesStore.category(for: place)).font(.caption).foregroundStyle(RoadarTheme.secondary)
                             }
-                            .frame(width: 150, alignment: .leading)
-                            .padding(10).background(.teal.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                            .frame(width: 160, alignment: .leading)
+                            .padding(16).background(RoadarTheme.elevated, in: RoundedRectangle(cornerRadius: 18))
                         }
+                        .buttonStyle(.plain)
                     }
                 }
+            }
             }
         }
     }
 
     private var drivingPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Driving minimap").font(.headline)
-                Spacer()
-                TimelineView(.periodic(from: .now, by: 5)) { context in
+        VStack(alignment: .leading, spacing: 14) {
+            TimelineView(.periodic(from: .now, by: 5)) { context in
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("THE ROAD AHEAD").font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(1.5).foregroundStyle(RoadarTheme.accent)
+                        let fresh = offlineRoads.match.timestamp.map { context.date.timeIntervalSince($0) <= 15 } ?? false
+                        Text(fresh ? (offlineRoads.match.road ?? "Finding your road") : "Finding your road")
+                            .font(.title2.bold()).lineLimit(2)
+                        Text("Speed limit · \(fresh ? (offlineRoads.match.speedLimit ?? "Unknown") : "Unknown")")
+                            .font(.caption).foregroundStyle(RoadarTheme.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    VStack(alignment: .trailing, spacing: 6) {
                     if let fix = location.location, context.date.timeIntervalSince(fix.timestamp) <= 30,
-                       fix.horizontalAccuracy <= 65, fix.speed >= 0 {
+                       fix.horizontalAccuracy >= 0, fix.horizontalAccuracy <= 65, fix.speed >= 0 {
                         Text(Measurement(value: fix.speed, unit: UnitSpeed.metersPerSecond)
-                            .formatted(.measurement(width: .abbreviated, usage: .general))).monospacedDigit()
-                    } else { Text("Speed —").foregroundStyle(.secondary) }
+                            .formatted(.measurement(width: .abbreviated, usage: .general)))
+                            .font(.title3.bold()).monospacedDigit()
+                    } else { Text("—").font(.title.bold()) }
+                        Text("SPEED").font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .tracking(1).foregroundStyle(RoadarTheme.secondary)
+                    }.padding(12).background(RoadarTheme.background, in: RoundedRectangle(cornerRadius: 14))
                 }
             }
-            Button("Explore simulated road replay") { showsReplay = true }
-                .font(.subheadline)
+            roadDetailsButton
         }
     }
 

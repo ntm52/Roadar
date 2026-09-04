@@ -9,11 +9,11 @@ struct WorkZonePanel: View {
     @State private var showsConnection = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("MDOT work zones").font(.subheadline.bold())
                 Spacer()
-                Button("Connection") { showsConnection = true }.font(.caption)
+                Button("Connection") { showsConnection = true }.font(.caption.weight(.semibold)).frame(minHeight: 44)
             }
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 VStack(alignment: .leading, spacing: 6) {
@@ -113,6 +113,7 @@ private struct MDOTConnectionView: View {
                     Link("MDOT RIDE datasets", destination: URL(string: "https://mdotridediscovery.state.mi.us/")!)
                 }
             }
+            .roadarSheet()
             .navigationTitle("Road information")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .onDisappear { key = "" }
@@ -148,6 +149,7 @@ private struct WorkZoneDetails: View {
                     Text("This record does not establish your current road, speed limit, or the presence of workers.").font(.caption)
                 }
             }
+            .roadarSheet()
             .navigationTitle("Work zone")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }

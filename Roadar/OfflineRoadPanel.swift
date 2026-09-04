@@ -6,11 +6,13 @@ struct OfflineRoadPanel: View {
     @State private var showsDownloads = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("OFFLINE ROAD CONTEXT", systemImage: "map")
+                .font(.caption2.weight(.bold)).tracking(1).foregroundStyle(RoadarTheme.accent)
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 let fresh = store.match.timestamp.map { context.date.timeIntervalSince($0) <= 15 } ?? false
                 Text(fresh ? (store.match.road ?? "Road uncertain") : "Road uncertain")
-                    .font(.subheadline.bold())
+                    .font(.title2.bold())
                 Text("Speed limit: \(fresh ? (store.match.speedLimit ?? "Unknown") : "Unknown")")
                     .font(.subheadline)
                 Text(!fresh && store.match.road != nil ? "Waiting for a fresh location." : store.match.message)
@@ -19,7 +21,7 @@ struct OfflineRoadPanel: View {
             HStack {
                 if store.region != nil { Text("© OpenStreetMap contributors").font(.caption2).foregroundStyle(.secondary) }
                 Spacer()
-                Button("Road downloads") { showsDownloads = true }.font(.caption)
+                Button("Road downloads") { showsDownloads = true }.font(.subheadline.weight(.semibold)).frame(minHeight: 44)
                     .accessibilityIdentifier("roadDownloads")
             }
         }
@@ -51,7 +53,7 @@ struct OfflineRoadDownloadsView: View {
                 }
                 Section("On this iPhone") {
                     if let region = store.region {
-                        Label("Ready offline", systemImage: "checkmark.circle.fill").foregroundStyle(.teal)
+                        Label("Ready offline", systemImage: "checkmark.circle.fill").foregroundStyle(RoadarTheme.accent)
                         if let date = region.date {
                             LabeledContent("OSM data", value: date.formatted(date: .abbreviated, time: .omitted))
                             if Date().timeIntervalSince(date) > 90 * 86_400 {
@@ -89,6 +91,7 @@ struct OfflineRoadDownloadsView: View {
                     Link("Source: Geofabrik Michigan extract", destination: URL(string: "https://download.geofabrik.de/north-america/us/michigan.html")!)
                 }
             }
+            .roadarSheet()
             .navigationTitle("Road downloads")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

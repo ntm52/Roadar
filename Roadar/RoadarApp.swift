@@ -5,6 +5,8 @@ struct RoadarApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.dark)
+                .tint(RoadarTheme.accent)
         }
     }
 }

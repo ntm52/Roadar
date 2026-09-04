@@ -16,6 +16,7 @@ struct RoadarTests {
         await store.preview(from: nil, driving: false)
         #expect(store.destination === destination)
         #expect(store.routes.isEmpty)
+        #expect(store.isWaitingForLocation)
         #expect(store.routeMessage != nil)
         #expect(!store.isRouting)
     }
@@ -27,6 +28,7 @@ struct RoadarTests {
             let location = CLLocation(coordinate: CLLocationCoordinate2D(latitude: 42.28, longitude: -83.74), altitude: 0,
                 horizontalAccuracy: accuracy, verticalAccuracy: 10, timestamp: Date().addingTimeInterval(-age))
             await store.preview(from: location, driving: true)
+            #expect(store.isWaitingForLocation)
             #expect(store.routeMessage != nil)
             #expect(!store.isRouting)
         }
@@ -38,6 +40,7 @@ struct RoadarTests {
         await store.preview(from: nil, driving: false)
         store.clearDestination()
         #expect(store.destination == nil)
+        #expect(!store.isWaitingForLocation)
         #expect(store.routeMessage == nil)
         #expect(store.activeRoute == nil)
     }
