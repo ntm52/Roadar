@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "regionID": "southern-michigan",
+  "name": "Southern Michigan",
+  "bounds": [
+    -87.0,
+    41.65,
+    -82.1,
+    42.9
+  ],
+  "sourceDate": "2026-09-03T20:21:51Z",
+  "roadCount": 805037,
+  "knownLimitRoadCount": 76479,
+  "roadKilometers": 158146,
+  "knownLimitKilometers": 28856,
+  "attribution": "\u00a9 OpenStreetMap contributors",
+  "license": "ODbL-1.0",
+  "sourceURL": "https://download.geofabrik.de/north-america/us/michigan.html",
+  "scope": "Michigan source roads south of 42.90\u00b0N. Offline road context only; no offline basemap, search or routing.",
+  "bytes": 83870944,
+  "sha256": "a6921af5f4e11770a8780cea9e1fa87c2da5ec2192c1ecd91744974b424c2a62",
+  "installedBytes": 182566912,
+  "downloadURL": "https://github.com/ntm52/Roadar/releases/download/roads-southern-michigan-2026-09-03/southern-michigan.roadar.gz"
+}

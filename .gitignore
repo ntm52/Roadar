@@ -1,0 +1,6 @@
+.DS_Store
+OfflinePackages/*.roadar
+OfflinePackages/*.osm.pbf
+__pycache__/
+OfflinePackages/*.roadar.gz
+OfflinePackages/*.roadar-*

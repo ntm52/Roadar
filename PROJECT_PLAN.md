@@ -1,7 +1,7 @@
 # Roadar project plan
 
 Created: 2026-09-03  
-Status: Phase 5 MDOT work-zone connection prototype implemented; authenticated live refresh and full downloaded-payload decoding verified; road matching and speed limits remain. Phase 4 foreground guidance prototype is implemented and simulator-checked; integrated journeys and physical-device acceptance remain.
+Status: Phase 5 Southern Michigan offline road context implemented; first package built (83.9 MB download / 182.6 MB installed), file import and public GitHub download verified. MDOT work-zone connection prototype implemented; authenticated live refresh and full downloaded-payload decoding verified; full Phase 5 road relevance and physical acceptance remain. Phase 4 foreground guidance prototype is implemented and simulator-checked; integrated journeys and physical-device acceptance remain.
 
 Purpose: Shared product plan and durable handoff between development sessions.
 
@@ -70,7 +70,7 @@ Do not expand initial scope to Android, social features, a worldwide reporting n
 - `Roadar/RoutePreviewStore.swift`: cancellable search and route requests, fastest-ETA ordering and location-quality gates.
 - Phase 3: nearby walking places, speed-aware following, and a labeled synthetic driving-road replay. See [PHASE_3_MINIMAP.md](PHASE_3_MINIMAP.md).
 - Phase 4: foreground visual guidance, progress/arrival, off-route recovery and conservative alternative-route proposals are implemented. See [PHASE_4_GUIDANCE.md](PHASE_4_GUIDANCE.md).
-- Live road matching/speed limits/reports, spoken guidance, CarPlay and Live Activities are not implemented yet.
+- Southern Michigan offline road matching and explicit OSM speed limits are implemented; MDOT work-zone data is live. Broad speed-limit coverage, confirmed ahead-of-driver reports, spoken guidance, CarPlay and Live Activities remain incomplete.
 
 ## Proposed architecture — provisional
 
@@ -171,21 +171,21 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ## Session handoff — update before ending each work session
 
-**Last completed session:** Phase 5 free MDOT route relevance, September 4, 2026.
+**Last completed session:** Southern Michigan data release published and in-app download verified, September 4, 2026. See [PHASE_5_OFFLINE_ROADS.md](PHASE_5_OFFLINE_ROADS.md) for the newest checkpoint; the MDOT notes below describe the preceding checkpoint.
 
-**Current phase:** Phase 5 — Live road information. Continue in order; CarPlay is phase 6. UI redesign preserving functionality remains requested and pending.
+**Current phase:** Phase 5 — Live road information. User selected OSM regional downloads, initially Lansing and south with a northern buffer; additional incident sources deferred. Offline road context and the first public download are built and simulator-verified; physical-device acceptance remains. Continue in order; CarPlay is phase 6. UI redesign preserving functionality remains requested and pending.
 
-**Completed:** Authenticated MDOT refresh, device-only Keychain storage, WZDx parsing and source freshness checks, nearby discovery using line distance, conservative possible work-zone matches against active driving routes, and full event details with reported schedule. Route matching runs locally using existing route geometry. No new paid service, SDK or account was enabled.
+**Completed:** Southern Michigan road package, streaming validated Files import, persistent local storage/removal, conservative offline road matching and explicit directional speed limits. The package is 83.9 MB compressed / 182.6 MB installed. Existing authenticated MDOT work zones remain separate. Additional incident sources are deferred. No paid service, map SDK or account enabled.
 
-**Files changed:** `ContentView.swift`; new `MDOTCredential.swift`, `WorkZoneFeed.swift`, `WorkZoneStore.swift`, `WorkZonePanel.swift`, `WorkZoneRoute.swift`, `WorkZoneTests.swift`, `WorkZoneRouteTests.swift`; this plan and `PHASE_5_LIVE_DATA.md`. Phase 5 checkpoint prepared for the user-requested commit and push to `main`.
+**Files changed:** `ContentView.swift`; new `OfflineRoadDatabase.swift`, `OfflineRoadMatcher.swift`, `OfflineRoadStore.swift`, `OfflineRoadPanel.swift`, bundled catalog, `OfflineRoadTests.swift`, builder/validation tools, package manifest/notice, Files-sharing configuration, and project handoff documentation. Binary packages are generated local artifacts ignored by git.
 
-**Verification:** All 34 unit tests passed in the iPhone 17 Pro simulator. New coverage includes ahead/current/passed work zones, horizon limits, opposite direction, parallel roads, crossings, short/unknown geometry, future turns, repeated route sections, expiry and stale guidance, walking suppression, and long-line nearby discovery. Earlier authenticated refresh and the full 710-record MDOT snapshot were verified. See Phase 5 notes for UI checks and limits.
+**Verification:** All 45 unit tests passed on the iPhone 17 Pro simulator; three builder tests passed. Full-size checksum/decompression/installation and real-geometry synthetic replay passed, including South Main Street and East Hoover Avenue in Ann Arbor. Manual simulator Files import displayed Ready offline, source date and package sizes. The rebuilt app also downloaded the published archive, validated it and installed a fresh 182,566,912-byte database, returning to Ready offline. The public manifest matches the bundled catalog. No physical driving validation performed.
 
-**Unresolved:** Geometry candidates cannot establish road identity or elevation; close parallel and stacked roads remain ambiguous. Current road, live speed limits, police reports, physical-device journeys, and integrated reroute acceptance remain open. Local route comparison is conservative and may omit valid zones. No spoken hazard alerts. Guidance remains foreground-only.
+**Unresolved:** Public downloading and Files import work. About 18.2% of included road distance has usable explicit limits. Close/stacked roads and weak location remain ambiguous, and the new local matcher does not make existing MDOT geometry candidates confirmed road matches. Physical journeys and integrated reroute acceptance remain. No offline basemap/search/routing or spoken hazard alerts; guidance is foreground-only.
 
-**Next concrete action:** Continue free Phase 5 acceptance with real driving routes and work-zone overlap, stale feed/network recovery, rerouting and physical-device checks. Investigate an offline road-data option before considering metered provider integration. Do not advance to CarPlay yet.
+**Next concrete action:** Perform physical-device and MDOT route-relevance acceptance, including ahead-of-driver filtering without a destination and reliable work-zone road identity. Do not advance to CarPlay yet.
 
-**Implementation authorization:** User requested more Phase 5 work without money. No paid service or external SDK enabled. User entered the MDOT key directly into the app; do not extract or print it. Prior authorization says future requested commits/pushes may target `main` at `https://github.com/ntm52/Roadar.git`; user subsequently requested committing and pushing this Phase 5 checkpoint.
+**Implementation authorization:** User approved OSM-based southern Michigan downloadable road information, with future incident sources deferred. No additional spending authorized. User entered the MDOT key directly into the app; do not extract or print it. Prior commit/push authorization applied to the preceding MDOT checkpoint, already committed as `9a94618`. User explicitly approved public hosting of the package, manifest and license notice; these are published at https://github.com/ntm52/Roadar/releases/tag/roads-southern-michigan-2026-09-03. The release tag references the existing MDOT checkpoint. User subsequently authorized committing and pushing the offline app checkpoint.
 
 ### Phase 2 acceptance checklist
 
@@ -231,3 +231,7 @@ For subsequent sessions, replace the handoff above with the current checkpoint a
 - **Phase 5 MDOT inspection:** Accepted the separately approved RIDE agreement and verified portal access. Incident samples are stale (Aug 5); work-zone WZDx 4.0 samples are current (Sep 4 UTC). API requires a key (401 without it); key generation deferred to avoid replacing an existing credential. Real work-zone JSON downloaded, but terminal file reads hang. Details and next steps in `PHASE_5_LIVE_DATA.md`; runtime integration remains incomplete.
 
 - **Phase 5 connection checkpoint:** User-approved MDOT key generation succeeded. Approval review blocked extracting the secret into tool output; key stays on its one-time browser page for direct user entry. Implemented Keychain connection form, throttled MDOT client, WZDx decoder and nearby work-zone display. Authenticated live response, real-payload validation and road/direction matching remain incomplete. See `PHASE_5_LIVE_DATA.md`.
+
+- **2026-09-04 — Offline roads:** Built Southern Michigan OSM road package (83.9 MB download, 182.6 MB installed), Files import/validation/removal, and local road/limit matching. Actual data revealed 18.2% explicit-limit coverage by included road distance. Full-package checks and simulator tests passed; public GitHub downloading subsequently passed in the simulator; physical acceptance remains. See `PHASE_5_OFFLINE_ROADS.md`. No paid services or new incident providers.
+
+- **2026-09-04 — Public road download:** Published the user-approved Southern Michigan package, manifest and ODbL notice. Confirmed anonymous manifest retrieval, matching release SHA-256, successful app rebuild and actual in-app archive download/validation/installation. No app source commit or push performed.

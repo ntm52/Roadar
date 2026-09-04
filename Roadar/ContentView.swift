@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var nearby = NearbyPlacesStore()
     @State private var trip = TripStore()
     @State private var workZones = WorkZoneStore()
+    @State private var offlineRoads = OfflineRoadStore()
     @State private var showsReplay = false
     @State private var showsSearch = false
     @State private var visibleRegion = Self.startRegion
@@ -73,6 +74,7 @@ struct ContentView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             controls
         }
+        .task { await offlineRoads.load() }
         .task {
             while !Task.isCancelled {
                 await trip.tick(location.isAuthorized ? location.location : nil)
@@ -94,7 +96,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             location.setActive(phase == .active)
             trip.setForeground(phase == .active)
-            if phase != .active { nearby.reset(); workZones.pause() }
+            if phase != .active { nearby.reset(); workZones.pause(); offlineRoads.update(nil) }
             else { refreshNearby() }
         }
         .onChange(of: location.authorization) { _, _ in
@@ -104,6 +106,7 @@ struct ContentView: View {
                 position = .region(Self.startRegion)
                 nearby.reset()
                 trip.update(nil)
+                offlineRoads.update(nil)
             }
         }
         .onChange(of: location.location == nil) { wasMissing, isMissing in
@@ -113,6 +116,7 @@ struct ContentView: View {
         }
         .onChange(of: location.location) { _, _ in
             trip.update(location.isAuthorized ? location.location : nil)
+            offlineRoads.update(mode == .driving && scenePhase == .active && location.isAuthorized ? location.location : nil)
             if !position.positionedByUser && (preview.destination == nil || trip.isActive) { followLocation() }
             refreshNearby()
         }
@@ -121,6 +125,7 @@ struct ContentView: View {
         }
         .onChange(of: mode) { _, newMode in
             location.setDriving(newMode == .driving)
+            offlineRoads.update(newMode == .driving && scenePhase == .active && location.isAuthorized ? location.location : nil)
             if newMode != .driving { workZones.pause() }
             preview.clearRoutes()
             if newMode == .driving { nearby.reset() } else { refreshNearby() }
@@ -166,6 +171,7 @@ struct ContentView: View {
                 drivingPanel
             }
             if mode == .driving {
+                OfflineRoadPanel(store: offlineRoads)
                 WorkZonePanel(store: workZones, location: location.isAuthorized ? location.location : nil, engine: trip.engine)
             }
             HStack(spacing: 12) {
@@ -428,9 +434,6 @@ struct ContentView: View {
                     } else { Text("Speed —").foregroundStyle(.secondary) }
                 }
             }
-            Text("Current road: Unavailable · Speed limit: Unknown").font(.subheadline)
-            Text("Road matching and live incident reports are unavailable. No reports does not mean a clear road.")
-                .font(.caption).foregroundStyle(.secondary)
             Button("Explore simulated road replay") { showsReplay = true }
                 .font(.subheadline)
         }

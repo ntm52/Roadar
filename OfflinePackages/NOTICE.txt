@@ -1,0 +1,29 @@
+Southern Michigan roads — September 3, 2026
+
+© OpenStreetMap contributors.
+This regional derivative database is made available under the Open Database
+License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/1-0/
+Individual database contents are subject to the Database Contents License:
+https://opendatacommons.org/licenses/dbcl/1-0/
+Attribution information: https://www.openstreetmap.org/copyright
+
+Source: Geofabrik Michigan OpenStreetMap extract
+https://download.geofabrik.de/north-america/us/michigan.html
+Source snapshot: 2026-09-03T20:21:51Z
+
+Coverage: Michigan source roads between longitude -87.0 and -82.1 and latitude
+41.65 and 42.90. The northern boundary is about 12 miles north of Lansing.
+
+The archive contains the complete derivative road database as SQLite, including
+road names, OSM way and node identifiers, geometry, direction and explicit speed
+limits. No offline basemap, place-search index, routing engine or live incident
+feed is included. Conditional, variable, lane-specific and symbolic speed limits
+are withheld. No speed limit is inferred from road class. Follow posted signs.
+
+Compressed size: 83,870,944 bytes
+Installed size: 182,566,912 bytes
+SHA-256: a6921af5f4e11770a8780cea9e1fa87c2da5ec2192c1ecd91744974b424c2a62
+
+805,037 cropped way sections, including service roads and tracks. Usable explicit
+limits cover approximately 18.2% of included road distance; this is source-data
+coverage, not a measured percentage of journeys displaying a speed limit.
