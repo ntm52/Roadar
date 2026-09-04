@@ -1,7 +1,7 @@
 # Roadar project plan
 
 Created: 2026-09-03  
-Status: Phase 4 foreground guidance prototype implemented and simulator-checked. Integrated journeys, live road integration and physical-device acceptance remain.
+Status: Phase 5 MDOT work-zone connection prototype implemented; authenticated live refresh and full downloaded-payload decoding verified; road matching and speed limits remain. Phase 4 foreground guidance prototype is implemented and simulator-checked; integrated journeys and physical-device acceptance remain.
 
 Purpose: Shared product plan and durable handoff between development sessions.
 
@@ -171,21 +171,21 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ## Session handoff — update before ending each work session
 
-**Last completed session:** Phase 4 foreground guidance checkpoint, 2026-09-03.
+**Last completed session:** Phase 5 free MDOT route relevance, September 4, 2026.
 
-**Current phase:** Phase 4 prototype implemented; integrated journey/device acceptance remains. Prior Phase 3 checkpoint and project settings are committed (`e188439`, `d5c0b68`).
+**Current phase:** Phase 5 — Live road information. Continue in order; CarPlay is phase 6. UI redesign preserving functionality remains requested and pending.
 
-**Completed:** Added Start guidance/End trip, current/upcoming maneuver text and distance, geometry progress, estimated remaining time/arrival, conservative arrival confirmation, stale/weak-GPS pause, off-route detection and route replacement, manual recovery, alternative proposals, configurable savings thresholds and cooldowns. Details and limitations: [PHASE_4_GUIDANCE.md](PHASE_4_GUIDANCE.md).
+**Completed:** Authenticated MDOT refresh, device-only Keychain storage, WZDx parsing and source freshness checks, nearby discovery using line distance, conservative possible work-zone matches against active driving routes, and full event details with reported schedule. Route matching runs locally using existing route geometry. No new paid service, SDK or account was enabled.
 
-**Files changed:** `Roadar/ContentView.swift`; new `Roadar/GuidanceEngine.swift`, `Roadar/TripStore.swift`, `Roadar/TripPanel.swift`, `RoadarTests/GuidanceTests.swift`, `PHASE_4_GUIDANCE.md`; this plan. No project/signing settings changed.
+**Files changed:** `ContentView.swift`; new `MDOTCredential.swift`, `WorkZoneFeed.swift`, `WorkZoneStore.swift`, `WorkZonePanel.swift`, `WorkZoneRoute.swift`, `WorkZoneTests.swift`, `WorkZoneRouteTests.swift`; this plan and `PHASE_5_LIVE_DATA.md`. Phase 5 checkpoint prepared for the user-requested commit and push to `main`.
 
-**Verification:** Simulator build and 20 unit tests passed. Real Apple walking-route walkthrough from a synthetic Ann Arbor location to Michigan Stadium confirmed preview alternatives, stale-location start refusal, fresh-location guidance, maneuver/ETA display and policy controls. Replay tests validate progression, missed-route detection, GPS quality, arrival, loops and cooldowns. Physical journeys and integrated reroute/network-race checks remain unverified.
+**Verification:** All 34 unit tests passed in the iPhone 17 Pro simulator. New coverage includes ahead/current/passed work zones, horizon limits, opposite direction, parallel roads, crossings, short/unknown geometry, future turns, repeated route sections, expiry and stale guidance, walking suppression, and long-line nearby discovery. Earlier authenticated refresh and the full 710-record MDOT snapshot were verified. See Phase 5 notes for UI checks and limits.
 
-**Unresolved:** Real road/provider integration, physical-device guidance quality, observed ETA accuracy, integrated alternative/recovery journeys, Mapbox access/cost controls, hazard/police feeds and CarPlay entitlement. Remaining ETA uses a labeled distance-based approximation. Guidance runs only while Roadar is active; this is not production navigation acceptance.
+**Unresolved:** Geometry candidates cannot establish road identity or elevation; close parallel and stacked roads remain ambiguous. Current road, live speed limits, police reports, physical-device journeys, and integrated reroute acceptance remain open. Local route comparison is conservative and may omit valid zones. No spoken hazard alerts. Guidance remains foreground-only.
 
-**Next concrete action:** Exercise short walking and passenger driving journeys on iPhone using the Phase 4 acceptance checklist. Validate maneuvers, missed turns, arrival, interruptions and ETA before marking Phase 4 complete; continue the earlier device checks and Phase 5 provider gates.
+**Next concrete action:** Continue free Phase 5 acceptance with real driving routes and work-zone overlap, stale feed/network recovery, rerouting and physical-device checks. Investigate an offline road-data option before considering metered provider integration. Do not advance to CarPlay yet.
 
-**Implementation authorization:** User requested starting Phase 4. No new accounts, paid services, background tracking or external SDKs enabled. User subsequently requested committing this Phase 4 checkpoint and plans to perform broader testing after some additional development. This checkpoint is committed on `main`; no push was requested. Prior authorization says future requested commits/pushes may target `main` at `https://github.com/ntm52/Roadar.git`.
+**Implementation authorization:** User requested more Phase 5 work without money. No paid service or external SDK enabled. User entered the MDOT key directly into the app; do not extract or print it. Prior authorization says future requested commits/pushes may target `main` at `https://github.com/ntm52/Roadar.git`; user subsequently requested committing and pushing this Phase 5 checkpoint.
 
 ### Phase 2 acceptance checklist
 
@@ -223,3 +223,11 @@ For subsequent sessions, replace the handoff above with the current checkpoint a
 ### Resume prompt
 
 > Read `PROJECT_PLAN.md` in the Roadar repository. Inspect the current code and repository instructions, then use the session handoff and decision log to identify the next step. Preserve confirmed requirements, distinguish proposals from decisions, and update the plan with the work and verification completed this session.
+
+- **2026-09-03 — Phase 5 investigation:** Confirmed user instruction to retain phase order. Reverted premature CarPlay edits. Checked official live-data source documentation and recorded account/schema gates in `PHASE_5_LIVE_DATA.md`. UI redesign remains requested and pending. No runtime changes or new test results this session.
+
+- **Phase 5 account follow-up:** Mapbox console login verified; no usage in the displayed Aug 5–Sep 4 period. Free-tier personal-use approach and limitations recorded in `PHASE_5_LIVE_DATA.md`. MDOT RIDE awaits user MiLogin agreement/sign-in; Mapbox Navigation download credentials are not configured. No live SDK integration or paid service enabled.
+
+- **Phase 5 MDOT inspection:** Accepted the separately approved RIDE agreement and verified portal access. Incident samples are stale (Aug 5); work-zone WZDx 4.0 samples are current (Sep 4 UTC). API requires a key (401 without it); key generation deferred to avoid replacing an existing credential. Real work-zone JSON downloaded, but terminal file reads hang. Details and next steps in `PHASE_5_LIVE_DATA.md`; runtime integration remains incomplete.
+
+- **Phase 5 connection checkpoint:** User-approved MDOT key generation succeeded. Approval review blocked extracting the secret into tool output; key stays on its one-time browser page for direct user entry. Implemented Keychain connection form, throttled MDOT client, WZDx decoder and nearby work-zone display. Authenticated live response, real-payload validation and road/direction matching remain incomplete. See `PHASE_5_LIVE_DATA.md`.

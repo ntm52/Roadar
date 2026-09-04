@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var preview = RoutePreviewStore()
     @State private var nearby = NearbyPlacesStore()
     @State private var trip = TripStore()
+    @State private var workZones = WorkZoneStore()
     @State private var showsReplay = false
     @State private var showsSearch = false
     @State private var visibleRegion = Self.startRegion
@@ -78,6 +79,13 @@ struct ContentView: View {
                 do { try await Task.sleep(for: .seconds(5)) } catch { break }
             }
         }
+        .task(id: scenePhase == .active && mode == .driving) {
+            guard scenePhase == .active && mode == .driving else { return }
+            while !Task.isCancelled {
+                workZones.refresh()
+                do { try await Task.sleep(for: .seconds(5)) } catch { break }
+            }
+        }
         .onAppear {
             location.setDriving(mode == .driving)
             location.setActive(scenePhase == .active)
@@ -86,7 +94,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             location.setActive(phase == .active)
             trip.setForeground(phase == .active)
-            if phase != .active { nearby.reset() }
+            if phase != .active { nearby.reset(); workZones.pause() }
             else { refreshNearby() }
         }
         .onChange(of: location.authorization) { _, _ in
@@ -113,6 +121,7 @@ struct ContentView: View {
         }
         .onChange(of: mode) { _, newMode in
             location.setDriving(newMode == .driving)
+            if newMode != .driving { workZones.pause() }
             preview.clearRoutes()
             if newMode == .driving { nearby.reset() } else { refreshNearby() }
             if preview.destination != nil { loadRoutes() }
@@ -155,6 +164,9 @@ struct ContentView: View {
                 nearbyPanel
             } else {
                 drivingPanel
+            }
+            if mode == .driving {
+                WorkZonePanel(store: workZones, location: location.isAuthorized ? location.location : nil, engine: trip.engine)
             }
             HStack(spacing: 12) {
                 Button {
@@ -417,7 +429,7 @@ struct ContentView: View {
                 }
             }
             Text("Current road: Unavailable · Speed limit: Unknown").font(.subheadline)
-            Text("Live road matching and reports are not connected. No reports does not mean a clear road.")
+            Text("Road matching and live incident reports are unavailable. No reports does not mean a clear road.")
                 .font(.caption).foregroundStyle(.secondary)
             Button("Explore simulated road replay") { showsReplay = true }
                 .font(.subheadline)
