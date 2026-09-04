@@ -2,6 +2,11 @@
 
 Implemented 2026-09-03. Foreground prototype; physical journeys and production navigation acceptance remain open.
 
+September 4 continuation: route lifecycle regression tests, startup/location fixes,
+app-owned shared services and persistent route preferences are documented in
+PHASE_6_FOUNDATION.md. Thresholds now persist across launches; session-only wording
+below describes the original checkpoint.
+
 ## Delivered
 
 Select a walking or driving route in the existing preview and choose **Start guidance**. The app follows position, displays the upcoming Apple instruction and distance, shows trip progress, and provides **End trip** / **Done**. Search and travel mode changes are disabled during a trip so destination, geometry and transport mode stay consistent. Ending a trip restores the destination-free minimap.

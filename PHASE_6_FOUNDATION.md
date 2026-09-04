@@ -29,7 +29,7 @@ verification, commit/push, and further development that can proceed without appr
 - Offline road details use an explicit vertical layout inside their timed view,
   matching the layout fix already used by the MDOT panel.
 
-## Remaining limitations
+## Verification — repair checkpoint
 
 Verification of the repair checkpoint: Debug simulator build, all 51 unit tests,
 and the redesigned map/search/driving/road-download interface walkthrough passed.
@@ -37,6 +37,36 @@ All three builder tests passed using `/private/tmp/roadar-osm-tools/bin/python`.
 Result bundle: `/tmp/RoadarAudit/Logs/Test/Test-Roadar-2026.09.04_18-28-18--0400.xcresult`.
 The initial parallel test run was interrupted after diagnosing the startup block;
 the passing rerun uses one simulator.
+
+## Continued development without CarPlay approval
+
+- `RoadarApp` now owns `AppSession`. Phone views receive its shared location,
+  route-preview, active-trip, nearby-place, work-zone and offline-road services.
+  Travel mode also belongs to the session. View reconstruction no longer creates
+  new service instances. Camera and sheet state remain local to the phone view.
+  Future CarPlay scene integration still needs to connect to this owner and
+  coordinate lifecycle; adding the shared owner alone does not implement CarPlay.
+- Route preferences can be opened before starting a trip from the main-map
+  sliders button, or during a trip. Savings and cooldown thresholds are saved
+  on this device, and Restore defaults resets them. Invalid saved values fall
+  back to the conservative defaults. No destinations or trip history are saved.
+- Added the required-reason UserDefaults entry for app-local preferences in
+  `PrivacyInfo.xcprivacy`. This is not a full App Store privacy review.
+- Deterministic persistence tests and an interface relaunch test cover saved
+  values, malformed data and restoring defaults.
+
+Final verification: the shared-state/preferences build passed all 53 unit tests
+and the map/search/driving/road-download UI walkthrough. The new persistence UI
+test initially used the wrong stepper button identifier; after correcting that
+test selector, it passed a full terminate/relaunch, saved-value check and reset.
+No production changes followed the passing unit suite. Final UI result:
+`/tmp/RoadarAudit/Logs/Test/Test-Roadar-2026.09.04_18-34-22--0400.xcresult`.
+
+References: [Apple model ownership](https://developer.apple.com/documentation/swiftui/managing-model-data-in-your-app),
+[UserDefaults and privacy](https://developer.apple.com/documentation/foundation/userdefaults),
+[required API reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype).
+
+## Remaining limitations
 
 Physical iPhone and passenger journeys remain necessary to assess real GPS,
 maneuver timing, arrival, signing, accessibility, battery and thermal performance.

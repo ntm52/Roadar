@@ -72,20 +72,7 @@ struct TripPanel: View {
             }
         }
         .sheet(isPresented: $showsSettings) {
-            NavigationStack {
-                Form {
-                    Section("Alternative route thresholds") {
-                        Stepper("Save at least \(Int(trip.policy.minimumSecondsSaved)) seconds", value: $trip.policy.minimumSecondsSaved, in: 30...300, step: 30)
-                        Stepper("Save at least \(Int((trip.policy.minimumFractionSaved * 100).rounded()))%", value: $trip.policy.minimumFractionSaved, in: 0.05...0.3, step: 0.05)
-                        Stepper("Cooldown: \(Int(trip.policy.cooldown / 60)) minutes", value: $trip.policy.cooldown, in: 120...600, step: 60)
-                    }
-                    Text("Both savings thresholds must pass. Alternatives require your selection. Confirmed off-route recovery chooses the fastest returned route and retries no more than every 30 seconds. Settings apply for this app session.")
-                    Text("Apple supplies the available routes. Remaining ETA is estimated from distance and the route’s original travel time; it is not continuously refreshed traffic data.")
-                }
-                .roadarSheet()
-                .navigationTitle("Route policy")
-                .toolbar { Button("Done") { showsSettings = false } }
-            }
+            RoutePolicyView(trip: trip)
         }
     }
 

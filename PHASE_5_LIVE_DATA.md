@@ -1,10 +1,10 @@
 # Phase 5 — Live road information
 
-Status: MDOT work-zone connection UI, Keychain storage, HTTP client and WZDx parsing/filtering implemented. Authenticated live refresh succeeded after direct user key entry; the real downloaded payload also passes the decoder. Phase 5 is not complete.
+Current status: User accepted Phase 5 as substantially complete on September 4, 2026 and authorized Phase 6 preparation. MDOT work-zone connection, authenticated live decoding and conservative route relevance are implemented. Remaining limitations below are retained acceptance debt. Earlier instructions in this historical report to wait before Phase 6 are superseded by this decision; see PHASE_6_FOUNDATION.md.
 
 ## Scope and sequence
 
-Continue phases in order: live road information is phase 5; CarPlay is phase 6. UI redesign preserving functionality remains requested and pending. Premature CarPlay changes were reverted; no CarPlay entitlements or background modes were added.
+Live road information is phase 5; CarPlay is phase 6. The UI redesign was subsequently completed and pushed. Earlier premature CarPlay changes were reverted; no CarPlay entitlements or background modes were added. Phase 6 preparation is now authorized while approval is pending.
 
 ## Implemented checkpoint
 

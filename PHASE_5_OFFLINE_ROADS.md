@@ -3,6 +3,11 @@
 Implemented September 4, 2026 following the user's selection of OpenStreetMap,
 Lansing-and-south coverage, and deferral of additional incident providers.
 
+Current status: Phase 5 accepted as substantially complete by the user; Phase 6
+preparation is authorized while CarPlay approval is pending. The UI redesign is
+completed and pushed. Historical pending items below remain coverage/acceptance
+notes, not a requirement to postpone Phase 6. See PHASE_6_FOUNDATION.md.
+
 ## Delivered
 
 - Repeatable builder crops actual Michigan OSM road data to 42.90°N and packages
@@ -62,4 +67,4 @@ validated and installed the public archive, returning to Ready offline without a
 - Ahead-of-driver MDOT filtering without a destination, more robust road identity
   for route work zones, and remaining Phase 4/5 acceptance remain open.
 - Additional incident/police sources are deferred by the user's current direction.
-  CarPlay stays Phase 6; UI redesign remains separately pending.
+  CarPlay stays Phase 6; the UI redesign is completed.

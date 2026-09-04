@@ -2,29 +2,32 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-private enum TravelMode: String, CaseIterable {
-    case walking = "Walking"
-    case driving = "Driving"
-
-    var symbol: String { self == .walking ? "figure.walk" : "car.fill" }
-}
-
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
-    @State private var location = LocationStore()
-    @State private var preview = RoutePreviewStore()
-    @State private var nearby = NearbyPlacesStore()
-    @State private var trip = TripStore()
-    @State private var workZones = WorkZoneStore()
-    @State private var offlineRoads = OfflineRoadStore()
+    @Bindable var session: AppSession
+    @Bindable private var preview: RoutePreviewStore
+    private var location: LocationStore { session.location }
+    private var nearby: NearbyPlacesStore { session.nearby }
+    private var trip: TripStore { session.trip }
+    private var workZones: WorkZoneStore { session.workZones }
+    private var offlineRoads: OfflineRoadStore { session.offlineRoads }
     @State private var showsReplay = false
     @State private var showsSearch = false
     @State private var showsRoadDetails = false
+    @State private var showsSettings = false
     @State private var visibleRegion = Self.startRegion
-    @State private var mode: TravelMode = .walking
+    private var mode: TravelMode {
+        get { session.mode }
+        nonmutating set { session.mode = newValue }
+    }
     @State private var followsHeading = false
     @State private var position: MapCameraPosition = .region(Self.startRegion)
+
+    init(session: AppSession) {
+        self.session = session
+        self.preview = session.preview
+    }
 
     private static let startRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 42.30, longitude: -83.39),
@@ -70,6 +73,7 @@ struct ContentView: View {
             searchSheet
         }
         .sheet(isPresented: $showsRoadDetails) { roadDetailsSheet }
+        .sheet(isPresented: $showsSettings) { RoutePolicyView(trip: trip) }
         .safeAreaInset(edge: .top, spacing: 0) {
             header
         }
@@ -101,6 +105,7 @@ struct ContentView: View {
         }
         .onAppear {
             trip.setForeground(scenePhase == .active)
+            location.setNavigating(trip.isActive)
             location.setDriving(mode == .driving)
             location.setActive(scenePhase == .active)
             if location.isAuthorized { recenter() }
@@ -162,6 +167,11 @@ struct ContentView: View {
                 Text(trip.isActive ? "GUIDANCE" : "EXPLORE")
                     .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
                     .foregroundStyle(RoadarTheme.secondary)
+                Button { showsSettings = true } label: {
+                    Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Route preferences")
+                .accessibilityIdentifier("routePreferences")
             }
             Button { showsSearch = true } label: {
                 HStack(spacing: 12) {
@@ -570,5 +580,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(session: AppSession())
 }

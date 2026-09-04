@@ -64,6 +64,27 @@ final class RoadarUITests: XCTestCase {
     }
 
     @MainActor
+    func testRoutePreferencesPersistAfterRelaunch() throws {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["routePreferences"].waitForExistence(timeout: 10))
+        app.buttons["routePreferences"].tap()
+        XCTAssertTrue(app.buttons["restoreRouteDefaults"].waitForExistence(timeout: 5))
+        app.buttons["restoreRouteDefaults"].tap()
+        let stepper = app.steppers["secondsThreshold"]
+        XCTAssertTrue(stepper.waitForExistence(timeout: 5))
+        stepper.buttons["secondsThreshold-Increment"].tap()
+        XCTAssertTrue(app.staticTexts["Save at least 90 seconds"].exists)
+        attachScreenshot("Route preferences", app: app)
+        app.terminate()
+        app.launch()
+        app.buttons["routePreferences"].tap()
+        XCTAssertTrue(app.staticTexts["Save at least 90 seconds"].waitForExistence(timeout: 5))
+        app.buttons["restoreRouteDefaults"].tap()
+        app.buttons["Done"].tap()
+    }
+
+    @MainActor
     private func attachScreenshot(_ name: String, app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

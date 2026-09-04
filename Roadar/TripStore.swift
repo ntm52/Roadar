@@ -11,7 +11,10 @@ final class TripStore {
     private(set) var proposal: MKRoute?
     private(set) var message: String?
     private(set) var estimateDate: Date?
-    var policy = ReroutePolicy()
+    var policy = ReroutePolicy() {
+        didSet { preferences?.save(policy) }
+    }
+    private let preferences: RoutePreferences?
     private var driving = false
     private var foreground = true
     private var requestID = UUID()
@@ -25,9 +28,11 @@ final class TripStore {
     var isActive: Bool { route != nil }
 
     init(makeDirections: @escaping (MKDirections.Request) -> any RouteCalculation = { MKDirections(request: $0) },
-         clock: @escaping () -> Date = { .now }) {
+         clock: @escaping () -> Date = { .now }, preferences: RoutePreferences? = nil) {
         self.makeDirections = makeDirections
         self.clock = clock
+        self.preferences = preferences
+        policy = preferences?.load() ?? ReroutePolicy()
     }
 
     func start(route: MKRoute, destination: MKMapItem, driving: Bool, location: CLLocation?, at now: Date = .now) {
