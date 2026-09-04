@@ -1,7 +1,8 @@
 # Roadar project plan
 
 Created: 2026-09-03  
-Status: Phase 2 implemented and simulator-tested; real-iPhone acceptance checks remain.  
+Status: Phase 2 committed/pushed; Phase 3 minimap prototype implemented and simulator-checked. Live road integration and device acceptance remain.
+
 Purpose: Shared product plan and durable handoff between development sessions.
 
 Phase 0 findings, free-service comparison, build audit, and remaining access gates: [PHASE_0_FEASIBILITY.md](PHASE_0_FEASIBILITY.md).
@@ -63,11 +64,12 @@ Do not expand initial scope to Android, social features, a worldwide reporting n
 - `Roadar/LocationStore.swift`: foreground location lifecycle, permission state, accuracy and stale-location reporting.
 - `Roadar/RoadarApp.swift`: launches the map directly; starter SwiftData container removed.
 - `Roadar/Item.swift`: unused starter model retained; no trip history is persisted.
-- `RoadarTests/` and `RoadarUITests/`: starter tests; no navigation behavior tests yet.
-- Phase 1: Debug arm64 simulator build and manual simulator checks passed. Deployment target remains iOS 26.5; phone OS/signing not verified.
+- `RoadarTests/`: route-preview recovery and road-replay behavior tests. `RoadarUITests/` retains starter tests.
+- Phase 1: Debug arm64 simulator build and manual simulator checks passed. Existing local project settings now target iOS 26.0 and portrait orientation; phone OS/signing not verified. These user changes have not been included in our commits.
 - Phase 2: place/address search, destination details, walking/driving route alternatives, geometry, distance and ETA are implemented using MapKit.
 - `Roadar/RoutePreviewStore.swift`: cancellable search and route requests, fastest-ETA ordering and location-quality gates.
-- Guidance, real speed limits/reports, CarPlay and Live Activities are not implemented yet.
+- Phase 3: nearby walking places, speed-aware following, and a labeled synthetic driving-road replay. See [PHASE_3_MINIMAP.md](PHASE_3_MINIMAP.md).
+- Guidance, live road matching/speed limits/reports, CarPlay and Live Activities are not implemented yet.
 
 ## Proposed architecture — provisional
 
@@ -141,7 +143,7 @@ Keep precise trip history local by default if retained at all. Define retention 
 
 These do not block Phase 1; resolve them before the relevant integration.
 
-1. Check the iPhone's installed iOS against the current iOS 26.5 deployment target; verify device signing.
+1. Check the iPhone's installed iOS against the current app iOS 26.0 deployment target; verify device signing.
 2. Verify/request CarPlay navigation entitlement for Roadar using the existing membership; test the actual WRX head unit later.
 3. Verify free-tier account access, cost controls, terms, and regional coverage before enabling external services. No additional spending is authorized.
 4. Obtain an authorized hazard feed, with MDOT RIDE and TomTom as candidates. A free police-report feed remains unconfirmed; demo reports cannot satisfy the production requirement.
@@ -168,14 +170,21 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ## Session handoff — update before ending each work session
 
-**Last completed session:** Phase 2 implementation, 2026-09-03.  
-**Current phase:** Phase 2 implemented and live-service simulator-checked; physical-device acceptance pending.  
-**Completed:** Place/address search biased to the visible map; result selection and destination marker; address, available phone and website; walking/driving route previews with alternative geometry, distance, ETA, fastest-available ordering, route selection, refresh and clear. Mode changes recalculate routes. Missing/stale/inaccurate locations block preview with recovery text. Requests are cancelled and generation-checked to prevent stale responses replacing newer selections. No guidance is implied.  
-**Files changed:** `Roadar/ContentView.swift`, new `Roadar/RoutePreviewStore.swift`, `RoadarTests/RoadarTests.swift`, `PROJECT_PLAN.md`. Existing user changes to `Roadar.xcodeproj/project.pbxproj` were preserved.  
-**Verification:** Debug simulator build passed; all four simulator unit tests passed (missing location, stale/inaccurate location, destination reset, blank search). Updated to current installed MapKit location/address APIs. Interactive simulator walkthrough passed: Ann Arbor District Library search returned four real results; selected downtown branch showed address, website and phone. Walking preview showed geometry, 8 min and 1,800 ft; switching to driving recalculated to 4 min and 2,050 ft. Visually checked portrait route geometry and controls. This destination returned one route per mode, so multiple-alternative interaction remains an acceptance check. Physical-device checks remain open.  
-**Unresolved:** Installed phone OS and signing; real-iPhone heading/location behavior; provider access, police data, MDOT access, CarPlay entitlement.  
-**Next concrete action:** On iPhone, search a real local place, inspect details, preview walking/driving routes, switch alternatives, verify geometry/distance/ETA, refresh and clear. Check no-network and denied-location recovery. Then Phase 3 destination-free minimap.  
-**Implementation authorization:** User requested Phase 2. Uses existing MapKit/Core Location choice without new accounts or paid services.
+**Last completed session:** Phase 2 commit/push and Phase 3 implementation, 2026-09-03.
+
+**Current phase:** Phase 3 prototype implemented and simulator-checked; real provider/device acceptance remains.
+
+**Completed:** Phase 2 committed as `b3d87fd` and pushed to `origin/main` (`ntm52/Roadar`). Added nearby walking-place discovery with tappable pins/cards, foreground compass following, speed-aware camera distance, driving availability states, and a synthetic road replay with direction/graph matching and ahead-only filtering. Detailed scope and provider review: [PHASE_3_MINIMAP.md](PHASE_3_MINIMAP.md).
+
+**Files changed:** `Roadar/ContentView.swift`, `Roadar/LocationStore.swift`, new `Roadar/NearbyPlacesStore.swift`, `Roadar/RoadContext.swift`, `Roadar/RoadReplay.swift`, `RoadarTests/RoadContextTests.swift`, `PHASE_3_MINIMAP.md`, and this plan. Existing project-setting edits are preserved.
+
+**Verification:** Simulator build and all 13 unit tests passed, including the final sharp-turn look-ahead guard. Interactive checks passed for real Ann Arbor nearby places, a card opening place details, walking recenter, driving unavailable/unknown states, labeled replay reports, and ambiguity withholding road/speed-limit/reports. First-location centering was corrected and confirmed in a fresh simulator launch.
+
+**Unresolved:** Real road-data/provider integration; physical-device behavior; Mapbox access/cost controls; hazard/police feeds; CarPlay entitlement. The driving-road prototype is explicitly simulated, not live navigation.
+
+**Next concrete action:** Validate minimap behavior on iPhone, including first location, heading, moving zoom, pan/recenter and foreground recovery. Secure a road-data source before claiming live road matching; guidance remains Phase 4.
+
+**Implementation authorization:** User requested committing/pushing Phase 2 and starting Phase 3. User confirmed that future requested commits/pushes for this app may target `main` at `https://github.com/ntm52/Roadar.git`. User subsequently requested committing and pushing this Phase 3 checkpoint to the same repository and branch. No new accounts, paid services, background tracking or external SDKs were enabled.
 
 ### Phase 2 acceptance checklist
 
@@ -188,7 +197,7 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ### Phase 1 device acceptance checklist
 
-- [ ] Confirm iPhone runs iOS 26.5 or adjust the deployment target deliberately; install through the existing signing team.
+- [ ] Confirm iPhone runs iOS 26.0 or later and validate the current deployment settings; install through the existing signing team.
 - [ ] Allow location and verify initial recenter, walking updates, north-up/heading-up, manual pan and recenter.
 - [ ] Check driving mode while parked or as a passenger; confirm map readability in portrait/landscape and light/dark appearance.
 - [ ] Deny location, return from Settings, and disable Precise Location; confirm usable map and accurate messages.
@@ -205,6 +214,8 @@ For subsequent sessions, replace the handoff above with the current checkpoint a
 - **2026-09-03 — Phase 1:** Built and simulator-checked the map/location foundation. Physical-device acceptance remains open; no later-phase features added.
 
 - **2026-09-03 — Phase 2:** Implemented search, place details and route comparison. Simulator build and four state/recovery tests passed; live-service simulator walkthrough passed; physical-device and multiple-alternative acceptance remain.
+
+- **2026-09-03 — Phase 3:** Pushed Phase 2 (`b3d87fd`) and built the destination-free minimap prototype. Added actual nearby places and a clearly simulated directed-road replay; provider gates remain.
 
 ### Resume prompt
 

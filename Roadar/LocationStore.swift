@@ -9,6 +9,7 @@ final class LocationStore: NSObject, CLLocationManagerDelegate {
     private(set) var authorization: CLAuthorizationStatus = .notDetermined
     private(set) var accuracy: CLAccuracyAuthorization = .fullAccuracy
     private(set) var location: CLLocation?
+    private(set) var heading: Double?
     private(set) var errorMessage: String?
 
     var isAuthorized: Bool {
@@ -43,8 +44,11 @@ final class LocationStore: NSObject, CLLocationManagerDelegate {
         accuracy = manager.accuracyAuthorization
         if isAuthorized && isActive {
             manager.startUpdatingLocation()
+            if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
         } else {
             manager.stopUpdatingLocation()
+            manager.stopUpdatingHeading()
+            heading = nil
         }
         if !isAuthorized {
             location = nil
@@ -61,6 +65,11 @@ final class LocationStore: NSObject, CLLocationManagerDelegate {
               abs(latest.timestamp.timeIntervalSinceNow) < 30 else { return }
         location = latest
         errorMessage = nil
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        guard newHeading.headingAccuracy >= 0, newHeading.headingAccuracy <= 35 else { heading = nil; return }
+        heading = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

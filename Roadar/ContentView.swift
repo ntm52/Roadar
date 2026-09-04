@@ -14,6 +14,8 @@ struct ContentView: View {
     @Environment(\.openURL) private var openURL
     @State private var location = LocationStore()
     @State private var preview = RoutePreviewStore()
+    @State private var nearby = NearbyPlacesStore()
+    @State private var showsReplay = false
     @State private var showsSearch = false
     @State private var visibleRegion = Self.startRegion
     @State private var mode: TravelMode = .walking
@@ -28,6 +30,18 @@ struct ContentView: View {
     var body: some View {
         Map(position: $position) {
             if location.isAuthorized { UserAnnotation() }
+            if mode == .walking && preview.destination == nil {
+                ForEach(Array(nearby.places.enumerated()), id: \.offset) { _, place in
+                    Annotation(place.name ?? "Nearby place", coordinate: place.location.coordinate) {
+                        Button { selectPlace(place) } label: {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.title2).foregroundStyle(.teal)
+                                .padding(4).background(.regularMaterial, in: Circle())
+                        }
+                        .accessibilityLabel("\(place.name ?? "Place"), \(NearbyPlacesStore.category(for: place))")
+                    }
+                }
+            }
             if let destination = preview.destination {
                 Marker(destination.name ?? "Destination", coordinate: destination.location.coordinate)
                     .tint(.orange)
@@ -44,6 +58,7 @@ struct ContentView: View {
         ))
         .mapControls { MapScaleView() }
         .onMapCameraChange(frequency: .onEnd) { visibleRegion = $0.region }
+        .sheet(isPresented: $showsReplay) { RoadReplayView() }
         .sheet(isPresented: $showsSearch) {
             searchSheet
         }
@@ -60,23 +75,35 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             location.setActive(phase == .active)
+            if phase != .active { nearby.reset() }
+            else { refreshNearby() }
         }
         .onChange(of: location.authorization) { _, _ in
             if location.isAuthorized {
                 recenter()
             } else {
                 position = .region(Self.startRegion)
+                nearby.reset()
             }
         }
         .onChange(of: location.location == nil) { wasMissing, isMissing in
-            if wasMissing && !isMissing && !position.positionedByUser {
+            if wasMissing && !isMissing && preview.destination == nil {
                 recenter()
             }
+        }
+        .onChange(of: location.location) { _, _ in
+            if !position.positionedByUser && preview.destination == nil { followLocation() }
+            refreshNearby()
+        }
+        .onChange(of: location.heading) { _, _ in
+            if followsHeading && !position.positionedByUser && preview.destination == nil { followLocation() }
         }
         .onChange(of: mode) { _, newMode in
             location.setDriving(newMode == .driving)
             preview.clearRoutes()
+            if newMode == .driving { nearby.reset() } else { refreshNearby() }
             if preview.destination != nil { loadRoutes() }
+            else if !position.positionedByUser { followLocation() }
         }
     }
 
@@ -104,6 +131,10 @@ struct ContentView: View {
         VStack(spacing: 12) {
             if let destination = preview.destination {
                 destinationPanel(destination)
+            } else if mode == .walking {
+                nearbyPanel
+            } else {
+                drivingPanel
             }
             HStack(spacing: 12) {
                 Button {
@@ -173,10 +204,8 @@ struct ContentView: View {
                 }
                 ForEach(Array(preview.results.enumerated()), id: \.offset) { _, place in
                     Button {
-                        preview.select(place)
+                        selectPlace(place)
                         showsSearch = false
-                        position = .region(MKCoordinateRegion(center: place.location.coordinate,
-                            latitudinalMeters: 1800, longitudinalMeters: 1800))
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(place.name ?? "Place").foregroundStyle(.primary)
@@ -274,8 +303,91 @@ struct ContentView: View {
             }
             return
         }
-        withAnimation {
+        followLocation()
+    }
+
+    private func followLocation() {
+        guard let fix = location.location, abs(fix.timestamp.timeIntervalSinceNow) <= 30 else {
             position = .userLocation(followsHeading: followsHeading, fallback: .region(Self.startRegion))
+            return
+        }
+        let driving = mode == .driving
+        let course = driving && fix.speed > 1.5 && fix.course >= 0 ? fix.course : location.heading ?? 0
+        let distance = driving ? min(2400, max(700, max(0, fix.speed) * 65)) : 550
+        position = .camera(MapCamera(centerCoordinate: fix.coordinate, distance: distance,
+                                     heading: followsHeading ? course : 0, pitch: 0))
+    }
+
+    private func selectPlace(_ place: MKMapItem) {
+        preview.select(place)
+        position = .region(MKCoordinateRegion(center: place.location.coordinate,
+            latitudinalMeters: 1800, longitudinalMeters: 1800))
+    }
+
+    private func refreshNearby(force: Bool = false) {
+        guard mode == .walking, scenePhase == .active else { return }
+        Task {
+            guard mode == .walking, scenePhase == .active else { return }
+            await nearby.refresh(near: location.isAuthorized ? location.location : nil, force: force)
+        }
+    }
+
+    private var nearbyPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Nearby on foot").font(.headline)
+                Spacer()
+                Button { refreshNearby(force: true) } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityLabel("Refresh nearby places")
+                .disabled(nearby.isLoading || !location.isAuthorized)
+            }
+            if nearby.isLoading { ProgressView("Finding nearby places…") }
+            if let message = nearby.message { Text(message).font(.caption).foregroundStyle(.secondary) }
+            if nearby.places.isEmpty && !nearby.isLoading && nearby.message == nil {
+                Text("Enable location to discover nearby places, or use Search.").font(.caption).foregroundStyle(.secondary)
+            }
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(Array(nearby.places.enumerated()), id: \.offset) { _, place in
+                        Button { selectPlace(place) } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(place.name ?? "Place").font(.subheadline.bold()).lineLimit(1)
+                                Text(NearbyPlacesStore.category(for: place)).font(.caption)
+                                if let fix = location.location {
+                                    Text(Measurement(value: place.location.distance(from: fix), unit: UnitLength.meters)
+                                        .formatted(.measurement(width: .abbreviated, usage: .road))).font(.caption)
+                                }
+                            }
+                            .frame(width: 150, alignment: .leading)
+                            .padding(10).background(.teal.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var drivingPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Driving minimap").font(.headline)
+                Spacer()
+                TimelineView(.periodic(from: .now, by: 5)) { context in
+                    if let fix = location.location, context.date.timeIntervalSince(fix.timestamp) <= 30,
+                       fix.horizontalAccuracy <= 65, fix.speed >= 0 {
+                        Text(Measurement(value: fix.speed, unit: UnitSpeed.metersPerSecond)
+                            .formatted(.measurement(width: .abbreviated, usage: .general))).monospacedDigit()
+                    } else { Text("Speed —").foregroundStyle(.secondary) }
+                }
+            }
+            Text("Current road: Unavailable · Speed limit: Unknown").font(.subheadline)
+            Text("Live road matching and reports are not connected. No reports does not mean a clear road.")
+                .font(.caption).foregroundStyle(.secondary)
+            Button("Explore simulated road replay") { showsReplay = true }
+                .font(.subheadline)
         }
     }
 
