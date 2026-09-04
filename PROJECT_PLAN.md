@@ -65,7 +65,7 @@ Do not expand initial scope to Android, social features, a worldwide reporting n
 - `Roadar/RoadarApp.swift`: launches the map directly; starter SwiftData container removed.
 - `Roadar/Item.swift`: unused starter model retained; no trip history is persisted.
 - `RoadarTests/`: route-preview recovery and road-replay behavior tests. `RoadarUITests/` retains starter tests.
-- Phase 1: Debug arm64 simulator build and manual simulator checks passed. Existing local project settings now target iOS 26.0 and portrait orientation; phone OS/signing not verified. These user changes have not been included in our commits.
+- Phase 1: Debug arm64 simulator build and manual simulator checks passed. Existing local project settings now target iOS 26.0 and portrait orientation; phone OS/signing not verified. These settings are included in a separate commit at the user’s request.
 - Phase 2: place/address search, destination details, walking/driving route alternatives, geometry, distance and ETA are implemented using MapKit.
 - `Roadar/RoutePreviewStore.swift`: cancellable search and route requests, fastest-ETA ordering and location-quality gates.
 - Phase 3: nearby walking places, speed-aware following, and a labeled synthetic driving-road replay. See [PHASE_3_MINIMAP.md](PHASE_3_MINIMAP.md).
