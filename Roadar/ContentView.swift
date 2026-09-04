@@ -13,6 +13,9 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @State private var location = LocationStore()
+    @State private var preview = RoutePreviewStore()
+    @State private var showsSearch = false
+    @State private var visibleRegion = Self.startRegion
     @State private var mode: TravelMode = .walking
     @State private var followsHeading = false
     @State private var position: MapCameraPosition = .region(Self.startRegion)
@@ -25,6 +28,14 @@ struct ContentView: View {
     var body: some View {
         Map(position: $position) {
             if location.isAuthorized { UserAnnotation() }
+            if let destination = preview.destination {
+                Marker(destination.name ?? "Destination", coordinate: destination.location.coordinate)
+                    .tint(.orange)
+            }
+            ForEach(Array(preview.routes.enumerated()), id: \.offset) { index, route in
+                MapPolyline(route.polyline)
+                    .stroke(index == preview.selectedRoute ? .teal : .gray.opacity(0.5), lineWidth: index == preview.selectedRoute ? 7 : 4)
+            }
         }
         .mapStyle(.standard(
             elevation: .flat,
@@ -32,6 +43,10 @@ struct ContentView: View {
             showsTraffic: mode == .driving
         ))
         .mapControls { MapScaleView() }
+        .onMapCameraChange(frequency: .onEnd) { visibleRegion = $0.region }
+        .sheet(isPresented: $showsSearch) {
+            searchSheet
+        }
         .safeAreaInset(edge: .top, spacing: 0) {
             header
         }
@@ -60,6 +75,8 @@ struct ContentView: View {
         }
         .onChange(of: mode) { _, newMode in
             location.setDriving(newMode == .driving)
+            preview.clearRoutes()
+            if preview.destination != nil { loadRoutes() }
         }
     }
 
@@ -71,6 +88,10 @@ struct ContentView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            Button { showsSearch = true } label: {
+                Label("Search", systemImage: "magnifyingglass")
+            }
+            .accessibilityIdentifier("searchPlaces")
             Image(systemName: mode.symbol)
                 .font(.title2).foregroundStyle(.teal)
                 .accessibilityHidden(true)
@@ -81,6 +102,9 @@ struct ContentView: View {
 
     private var controls: some View {
         VStack(spacing: 12) {
+            if let destination = preview.destination {
+                destinationPanel(destination)
+            }
             HStack(spacing: 12) {
                 Button {
                     followsHeading.toggle()
@@ -125,13 +149,120 @@ struct ContentView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(position.positionedByUser ? "Exploring map · Tap Recenter to follow" : "Minimap · No destination needed")
+                    Text(preview.destination != nil ? "Destination selected · Preview only" : (position.positionedByUser ? "Exploring map · Tap Recenter to follow" : "Minimap · No destination needed"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
         .padding()
         .background(.regularMaterial)
+    }
+
+    private var searchSheet: some View {
+        NavigationStack {
+            List {
+                if preview.isSearching {
+                    ProgressView("Searching places…")
+                }
+                if let message = preview.searchMessage {
+                    Text(message).foregroundStyle(.secondary)
+                }
+                if preview.results.isEmpty && !preview.isSearching && preview.searchMessage == nil {
+                    Text("Search for a business, place, or address near the map.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(Array(preview.results.enumerated()), id: \.offset) { _, place in
+                    Button {
+                        preview.select(place)
+                        showsSearch = false
+                        position = .region(MKCoordinateRegion(center: place.location.coordinate,
+                            latitudinalMeters: 1800, longitudinalMeters: 1800))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(place.name ?? "Place").foregroundStyle(.primary)
+                            Text(place.address?.fullAddress ?? "Address unavailable")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Find a place")
+            .searchable(text: $preview.query, prompt: "Places and addresses")
+            .onSubmit(of: .search) {
+                Task { await preview.searchPlaces(in: visibleRegion) }
+            }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showsSearch = false }
+                }
+            }
+        }
+    }
+
+    private func destinationPanel(_ destination: MKMapItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(destination.name ?? "Destination").font(.headline)
+                    Text(destination.address?.fullAddress ?? "Address unavailable")
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+                Spacer()
+                Button {
+                    preview.clearDestination()
+                    if location.isAuthorized { recenter() }
+                } label: { Image(systemName: "xmark.circle.fill").font(.title2) }
+                .accessibilityLabel("Clear destination")
+            }
+            if let url = destination.url { Link("Place website", destination: url).font(.caption) }
+            if let phone = destination.phoneNumber { Text(phone).font(.caption) }
+            if preview.isRouting {
+                ProgressView("Finding \(mode.rawValue.lowercased()) routes…")
+            } else if !preview.routes.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack {
+                        ForEach(Array(preview.routes.enumerated()), id: \.offset) { index, route in
+                            Button {
+                                preview.selectedRoute = index
+                                fitRoute()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("\(max(1, Int(ceil(route.expectedTravelTime / 60)))) min · \(Measurement(value: route.distance, unit: UnitLength.meters).formatted(.measurement(width: .abbreviated, usage: .road)))")
+                                        .font(.subheadline.bold())
+                                    Text(route.name).font(.caption).lineLimit(1)
+                                    Text(index == 0 ? "Fastest available" : "Alternative \(index)").font(.caption2)
+                                }
+                                .padding(10)
+                                .background(index == preview.selectedRoute ? Color.teal.opacity(0.18) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                            }
+                            .accessibilityAddTraits(index == preview.selectedRoute ? .isSelected : [])
+                        }
+                    }
+                }
+                Text("\(mode.rawValue) preview · Estimates from Apple Maps · Guidance comes later")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            if let message = preview.routeMessage {
+                Text(message).font(.caption).foregroundStyle(.secondary)
+            }
+            if !preview.isRouting {
+                Button(preview.routes.isEmpty ? "Preview \(mode.rawValue.lowercased()) routes" : "Refresh routes", action: loadRoutes)
+                    .buttonStyle(.borderedProminent).tint(.teal)
+            }
+        }
+    }
+
+    private func loadRoutes() {
+        Task {
+            await preview.preview(from: location.isAuthorized ? location.location : nil, driving: mode == .driving)
+            fitRoute()
+        }
+    }
+
+    private func fitRoute() {
+        guard let route = preview.activeRoute else { return }
+        let rect = route.polyline.boundingMapRect
+        withAnimation { position = .rect(rect.insetBy(dx: -max(rect.width * 0.18, 300), dy: -max(rect.height * 0.18, 300))) }
     }
 
     private func recenter() {

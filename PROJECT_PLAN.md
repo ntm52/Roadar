@@ -1,7 +1,7 @@
 # Roadar project plan
 
 Created: 2026-09-03  
-Status: Phase 1 implemented and simulator-checked; real-iPhone acceptance checks remain.  
+Status: Phase 2 implemented and simulator-tested; real-iPhone acceptance checks remain.  
 Purpose: Shared product plan and durable handoff between development sessions.
 
 Phase 0 findings, free-service comparison, build audit, and remaining access gates: [PHASE_0_FEASIBILITY.md](PHASE_0_FEASIBILITY.md).
@@ -65,7 +65,9 @@ Do not expand initial scope to Android, social features, a worldwide reporting n
 - `Roadar/Item.swift`: unused starter model retained; no trip history is persisted.
 - `RoadarTests/` and `RoadarUITests/`: starter tests; no navigation behavior tests yet.
 - Phase 1: Debug arm64 simulator build and manual simulator checks passed. Deployment target remains iOS 26.5; phone OS/signing not verified.
-- Search, routing, real speed limits/reports, CarPlay and Live Activities are not implemented yet.
+- Phase 2: place/address search, destination details, walking/driving route alternatives, geometry, distance and ETA are implemented using MapKit.
+- `Roadar/RoutePreviewStore.swift`: cancellable search and route requests, fastest-ETA ordering and location-quality gates.
+- Guidance, real speed limits/reports, CarPlay and Live Activities are not implemented yet.
 
 ## Proposed architecture — provisional
 
@@ -166,14 +168,23 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ## Session handoff — update before ending each work session
 
-**Last completed session:** Phase 1 implementation, 2026-09-03.  
-**Current phase:** Phase 1 implemented; physical-device acceptance pending.  
-**Completed:** Replaced starter list with MapKit map centered initially on southeast Michigan; added foreground location service, walking/driving modes, north-up/heading-up following, recentering, and permission/accuracy/stale/error states. Driving shows traffic and suppresses POIs; walking shows native POIs.  
-**Files changed:** `Roadar/ContentView.swift`, new `Roadar/LocationStore.swift`, `Roadar/RoadarApp.swift`, `Roadar.xcodeproj/project.pbxproj`, `PROJECT_PLAN.md`.  
-**Verification:** Debug arm64 simulator build passed on iOS 26.5. Manually checked first launch, permission prompt text, denied fallback/Settings action visibility, simulated Ann Arbor location, recentering, and driving-mode selection. Weak/reduced/stale handling is implemented but not empirically validated. Physical compass behavior and GPS quality remain device checks.  
+**Last completed session:** Phase 2 implementation, 2026-09-03.  
+**Current phase:** Phase 2 implemented and live-service simulator-checked; physical-device acceptance pending.  
+**Completed:** Place/address search biased to the visible map; result selection and destination marker; address, available phone and website; walking/driving route previews with alternative geometry, distance, ETA, fastest-available ordering, route selection, refresh and clear. Mode changes recalculate routes. Missing/stale/inaccurate locations block preview with recovery text. Requests are cancelled and generation-checked to prevent stale responses replacing newer selections. No guidance is implied.  
+**Files changed:** `Roadar/ContentView.swift`, new `Roadar/RoutePreviewStore.swift`, `RoadarTests/RoadarTests.swift`, `PROJECT_PLAN.md`. Existing user changes to `Roadar.xcodeproj/project.pbxproj` were preserved.  
+**Verification:** Debug simulator build passed; all four simulator unit tests passed (missing location, stale/inaccurate location, destination reset, blank search). Updated to current installed MapKit location/address APIs. Interactive simulator walkthrough passed: Ann Arbor District Library search returned four real results; selected downtown branch showed address, website and phone. Walking preview showed geometry, 8 min and 1,800 ft; switching to driving recalculated to 4 min and 2,050 ft. Visually checked portrait route geometry and controls. This destination returned one route per mode, so multiple-alternative interaction remains an acceptance check. Physical-device checks remain open.  
 **Unresolved:** Installed phone OS and signing; real-iPhone heading/location behavior; provider access, police data, MDOT access, CarPlay entitlement.  
-**Next concrete action:** Run on the iPhone 16 Pro and check location permission, following while walking, compass rotation, manual pan/recenter, background/foreground return, and denied/Precise Location settings. Then Phase 2 search and route preview.  
-**Implementation authorization:** User requested Phase 1. No external SDK, paid service, backend, background tracking capability, or CarPlay integration added.
+**Next concrete action:** On iPhone, search a real local place, inspect details, preview walking/driving routes, switch alternatives, verify geometry/distance/ETA, refresh and clear. Check no-network and denied-location recovery. Then Phase 3 destination-free minimap.  
+**Implementation authorization:** User requested Phase 2. Uses existing MapKit/Core Location choice without new accounts or paid services.
+
+### Phase 2 acceptance checklist
+
+- [ ] Search a named business and a street address in Ann Arbor–Detroit; inspect and select results.
+- [ ] With a fresh location, preview walking and driving routes; confirm geometry, distance and ETA.
+- [ ] Compare alternatives where Apple returns them; confirm selected route and travel mode are clear.
+- [ ] Change destination or mode during a request; clear and refresh the preview.
+- [ ] Check no results, network failure, denied location and weak/stale location; recover and retry.
+- [ ] Check portrait, landscape, larger text and VoiceOver on iPhone.
 
 ### Phase 1 device acceptance checklist
 
@@ -192,6 +203,8 @@ For subsequent sessions, replace the handoff above with the current checkpoint a
 - **2026-09-03 — Phase 0:** Completed feasibility assessment and baseline build. Confirmed target hardware/region and free-first approach; chose native map prototype; recorded report/data and CarPlay gates in `PHASE_0_FEASIBILITY.md`.
 
 - **2026-09-03 — Phase 1:** Built and simulator-checked the map/location foundation. Physical-device acceptance remains open; no later-phase features added.
+
+- **2026-09-03 — Phase 2:** Implemented search, place details and route comparison. Simulator build and four state/recovery tests passed; live-service simulator walkthrough passed; physical-device and multiple-alternative acceptance remain.
 
 ### Resume prompt
 
