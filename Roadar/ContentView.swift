@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var location = LocationStore()
     @State private var preview = RoutePreviewStore()
     @State private var nearby = NearbyPlacesStore()
+    @State private var trip = TripStore()
     @State private var showsReplay = false
     @State private var showsSearch = false
     @State private var visibleRegion = Self.startRegion
@@ -46,7 +47,10 @@ struct ContentView: View {
                 Marker(destination.name ?? "Destination", coordinate: destination.location.coordinate)
                     .tint(.orange)
             }
-            ForEach(Array(preview.routes.enumerated()), id: \.offset) { index, route in
+            if let route = trip.route {
+                MapPolyline(route.polyline).stroke(.teal, lineWidth: 7)
+            }
+            ForEach(Array((trip.isActive ? [] : preview.routes).enumerated()), id: \.offset) { index, route in
                 MapPolyline(route.polyline)
                     .stroke(index == preview.selectedRoute ? .teal : .gray.opacity(0.5), lineWidth: index == preview.selectedRoute ? 7 : 4)
             }
@@ -68,6 +72,12 @@ struct ContentView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             controls
         }
+        .task {
+            while !Task.isCancelled {
+                await trip.tick(location.isAuthorized ? location.location : nil)
+                do { try await Task.sleep(for: .seconds(5)) } catch { break }
+            }
+        }
         .onAppear {
             location.setDriving(mode == .driving)
             location.setActive(scenePhase == .active)
@@ -75,6 +85,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             location.setActive(phase == .active)
+            trip.setForeground(phase == .active)
             if phase != .active { nearby.reset() }
             else { refreshNearby() }
         }
@@ -84,6 +95,7 @@ struct ContentView: View {
             } else {
                 position = .region(Self.startRegion)
                 nearby.reset()
+                trip.update(nil)
             }
         }
         .onChange(of: location.location == nil) { wasMissing, isMissing in
@@ -92,11 +104,12 @@ struct ContentView: View {
             }
         }
         .onChange(of: location.location) { _, _ in
-            if !position.positionedByUser && preview.destination == nil { followLocation() }
+            trip.update(location.isAuthorized ? location.location : nil)
+            if !position.positionedByUser && (preview.destination == nil || trip.isActive) { followLocation() }
             refreshNearby()
         }
         .onChange(of: location.heading) { _, _ in
-            if followsHeading && !position.positionedByUser && preview.destination == nil { followLocation() }
+            if followsHeading && !position.positionedByUser && (preview.destination == nil || trip.isActive) { followLocation() }
         }
         .onChange(of: mode) { _, newMode in
             location.setDriving(newMode == .driving)
@@ -119,6 +132,7 @@ struct ContentView: View {
                 Label("Search", systemImage: "magnifyingglass")
             }
             .accessibilityIdentifier("searchPlaces")
+            .disabled(trip.isActive)
             Image(systemName: mode.symbol)
                 .font(.title2).foregroundStyle(.teal)
                 .accessibilityHidden(true)
@@ -129,7 +143,13 @@ struct ContentView: View {
 
     private var controls: some View {
         VStack(spacing: 12) {
-            if let destination = preview.destination {
+            if trip.isActive {
+                TripPanel(trip: trip, location: location.location) {
+                    trip.end()
+                    preview.clearDestination()
+                    recenter()
+                }
+            } else if let destination = preview.destination {
                 destinationPanel(destination)
             } else if mode == .walking {
                 nearbyPanel
@@ -164,6 +184,7 @@ struct ContentView: View {
             }
             .pickerStyle(.segmented)
             .accessibilityIdentifier("travelMode")
+            .disabled(trip.isActive)
 
             TimelineView(.periodic(from: .now, by: 5)) { context in
                 if let message = location.status(at: context.date) {
@@ -180,7 +201,7 @@ struct ContentView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(preview.destination != nil ? "Destination selected · Preview only" : (position.positionedByUser ? "Exploring map · Tap Recenter to follow" : "Minimap · No destination needed"))
+                    Text(trip.isActive ? "Foreground guidance · Keep Roadar open" : preview.destination != nil ? "Destination selected · Preview only" : (position.positionedByUser ? "Exploring map · Tap Recenter to follow" : "Minimap · No destination needed"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -268,11 +289,23 @@ struct ContentView: View {
                         }
                     }
                 }
-                Text("\(mode.rawValue) preview · Estimates from Apple Maps · Guidance comes later")
+                Text("\(mode.rawValue) preview · Estimates from Apple Maps")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             if let message = preview.routeMessage {
                 Text(message).font(.caption).foregroundStyle(.secondary)
+            }
+            if let message = trip.message {
+                Text(message).font(.caption).foregroundStyle(.secondary)
+            }
+            if let route = preview.activeRoute {
+                Button("Start guidance") {
+                    trip.start(route: route, destination: destination, driving: mode == .driving,
+                               location: location.isAuthorized ? location.location : nil)
+                    if trip.isActive { followsHeading = true; recenter() }
+                }
+                .buttonStyle(.borderedProminent).tint(.teal)
+                .accessibilityIdentifier("startGuidance")
             }
             if !preview.isRouting {
                 Button(preview.routes.isEmpty ? "Preview \(mode.rawValue.lowercased()) routes" : "Refresh routes", action: loadRoutes)
@@ -325,9 +358,9 @@ struct ContentView: View {
     }
 
     private func refreshNearby(force: Bool = false) {
-        guard mode == .walking, scenePhase == .active else { return }
+        guard mode == .walking, scenePhase == .active, !trip.isActive else { return }
         Task {
-            guard mode == .walking, scenePhase == .active else { return }
+            guard mode == .walking, scenePhase == .active, !trip.isActive else { return }
             await nearby.refresh(near: location.isAuthorized ? location.location : nil, force: force)
         }
     }

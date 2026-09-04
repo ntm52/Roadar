@@ -1,7 +1,7 @@
 # Roadar project plan
 
 Created: 2026-09-03  
-Status: Phase 2 committed/pushed; Phase 3 minimap prototype implemented and simulator-checked. Live road integration and device acceptance remain.
+Status: Phase 4 foreground guidance prototype implemented and simulator-checked. Integrated journeys, live road integration and physical-device acceptance remain.
 
 Purpose: Shared product plan and durable handoff between development sessions.
 
@@ -69,7 +69,8 @@ Do not expand initial scope to Android, social features, a worldwide reporting n
 - Phase 2: place/address search, destination details, walking/driving route alternatives, geometry, distance and ETA are implemented using MapKit.
 - `Roadar/RoutePreviewStore.swift`: cancellable search and route requests, fastest-ETA ordering and location-quality gates.
 - Phase 3: nearby walking places, speed-aware following, and a labeled synthetic driving-road replay. See [PHASE_3_MINIMAP.md](PHASE_3_MINIMAP.md).
-- Guidance, live road matching/speed limits/reports, CarPlay and Live Activities are not implemented yet.
+- Phase 4: foreground visual guidance, progress/arrival, off-route recovery and conservative alternative-route proposals are implemented. See [PHASE_4_GUIDANCE.md](PHASE_4_GUIDANCE.md).
+- Live road matching/speed limits/reports, spoken guidance, CarPlay and Live Activities are not implemented yet.
 
 ## Proposed architecture — provisional
 
@@ -170,21 +171,21 @@ These do not block Phase 1; resolve them before the relevant integration.
 
 ## Session handoff — update before ending each work session
 
-**Last completed session:** Phase 2 commit/push and Phase 3 implementation, 2026-09-03.
+**Last completed session:** Phase 4 foreground guidance checkpoint, 2026-09-03.
 
-**Current phase:** Phase 3 prototype implemented and simulator-checked; real provider/device acceptance remains.
+**Current phase:** Phase 4 prototype implemented; integrated journey/device acceptance remains. Prior Phase 3 checkpoint and project settings are committed (`e188439`, `d5c0b68`).
 
-**Completed:** Phase 2 committed as `b3d87fd` and pushed to `origin/main` (`ntm52/Roadar`). Added nearby walking-place discovery with tappable pins/cards, foreground compass following, speed-aware camera distance, driving availability states, and a synthetic road replay with direction/graph matching and ahead-only filtering. Detailed scope and provider review: [PHASE_3_MINIMAP.md](PHASE_3_MINIMAP.md).
+**Completed:** Added Start guidance/End trip, current/upcoming maneuver text and distance, geometry progress, estimated remaining time/arrival, conservative arrival confirmation, stale/weak-GPS pause, off-route detection and route replacement, manual recovery, alternative proposals, configurable savings thresholds and cooldowns. Details and limitations: [PHASE_4_GUIDANCE.md](PHASE_4_GUIDANCE.md).
 
-**Files changed:** `Roadar/ContentView.swift`, `Roadar/LocationStore.swift`, new `Roadar/NearbyPlacesStore.swift`, `Roadar/RoadContext.swift`, `Roadar/RoadReplay.swift`, `RoadarTests/RoadContextTests.swift`, `PHASE_3_MINIMAP.md`, and this plan. Existing project-setting edits are preserved.
+**Files changed:** `Roadar/ContentView.swift`; new `Roadar/GuidanceEngine.swift`, `Roadar/TripStore.swift`, `Roadar/TripPanel.swift`, `RoadarTests/GuidanceTests.swift`, `PHASE_4_GUIDANCE.md`; this plan. No project/signing settings changed.
 
-**Verification:** Simulator build and all 13 unit tests passed, including the final sharp-turn look-ahead guard. Interactive checks passed for real Ann Arbor nearby places, a card opening place details, walking recenter, driving unavailable/unknown states, labeled replay reports, and ambiguity withholding road/speed-limit/reports. First-location centering was corrected and confirmed in a fresh simulator launch.
+**Verification:** Simulator build and 20 unit tests passed. Real Apple walking-route walkthrough from a synthetic Ann Arbor location to Michigan Stadium confirmed preview alternatives, stale-location start refusal, fresh-location guidance, maneuver/ETA display and policy controls. Replay tests validate progression, missed-route detection, GPS quality, arrival, loops and cooldowns. Physical journeys and integrated reroute/network-race checks remain unverified.
 
-**Unresolved:** Real road-data/provider integration; physical-device behavior; Mapbox access/cost controls; hazard/police feeds; CarPlay entitlement. The driving-road prototype is explicitly simulated, not live navigation.
+**Unresolved:** Real road/provider integration, physical-device guidance quality, observed ETA accuracy, integrated alternative/recovery journeys, Mapbox access/cost controls, hazard/police feeds and CarPlay entitlement. Remaining ETA uses a labeled distance-based approximation. Guidance runs only while Roadar is active; this is not production navigation acceptance.
 
-**Next concrete action:** Validate minimap behavior on iPhone, including first location, heading, moving zoom, pan/recenter and foreground recovery. Secure a road-data source before claiming live road matching; guidance remains Phase 4.
+**Next concrete action:** Exercise short walking and passenger driving journeys on iPhone using the Phase 4 acceptance checklist. Validate maneuvers, missed turns, arrival, interruptions and ETA before marking Phase 4 complete; continue the earlier device checks and Phase 5 provider gates.
 
-**Implementation authorization:** User requested committing/pushing Phase 2 and starting Phase 3. User confirmed that future requested commits/pushes for this app may target `main` at `https://github.com/ntm52/Roadar.git`. User subsequently requested committing and pushing this Phase 3 checkpoint to the same repository and branch. No new accounts, paid services, background tracking or external SDKs were enabled.
+**Implementation authorization:** User requested starting Phase 4. No new accounts, paid services, background tracking or external SDKs enabled. User subsequently requested committing this Phase 4 checkpoint and plans to perform broader testing after some additional development. This checkpoint is committed on `main`; no push was requested. Prior authorization says future requested commits/pushes may target `main` at `https://github.com/ntm52/Roadar.git`.
 
 ### Phase 2 acceptance checklist
 
@@ -216,6 +217,8 @@ For subsequent sessions, replace the handoff above with the current checkpoint a
 - **2026-09-03 — Phase 2:** Implemented search, place details and route comparison. Simulator build and four state/recovery tests passed; live-service simulator walkthrough passed; physical-device and multiple-alternative acceptance remain.
 
 - **2026-09-03 — Phase 3:** Pushed Phase 2 (`b3d87fd`) and built the destination-free minimap prototype. Added actual nearby places and a clearly simulated directed-road replay; provider gates remain.
+
+- **2026-09-03 — Phase 4:** Implemented and simulator-checked foreground visual guidance and conservative route policy. Added seven repeatable guidance tests; physical and integrated journey acceptance remains. See `PHASE_4_GUIDANCE.md`.
 
 ### Resume prompt
 
