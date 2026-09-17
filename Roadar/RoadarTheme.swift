@@ -6,6 +6,7 @@ enum RoadarTheme {
     static let elevated = Color(red: 0.10, green: 0.12, blue: 0.13)
     static let accent = Color(red: 0.64, green: 0.98, blue: 0.79)
     static let secondary = Color(red: 0.68, green: 0.73, blue: 0.74)
+    static let mapTint = Color(red: 0.80, green: 1.0, blue: 0.88)
     static let border = Color.white.opacity(0.12)
 }
 

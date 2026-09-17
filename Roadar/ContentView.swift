@@ -16,12 +16,17 @@ struct ContentView: View {
     @State private var showsSearch = false
     @State private var showsRoadDetails = false
     @State private var showsSettings = false
+    @State private var mapLocation: CLLocation?
+    @State private var headerFrame: CGRect = .zero
+    @State private var bottomFrame: CGRect = .zero
     @State private var visibleRegion = Self.startRegion
     private var mode: TravelMode {
         get { session.mode }
         nonmutating set { session.mode = newValue }
     }
-    @State private var followsHeading = false
+    @State private var followsHeading = true
+    @State private var forwardCamera = ForwardMapCamera()
+    @AppStorage("compactMapControls") private var compactControls = false
     @State private var position: MapCameraPosition = .region(Self.startRegion)
 
     init(session: AppSession) {
@@ -36,8 +41,19 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { geometry in
+        MapReader { proxy in
         Map(position: $position) {
-            if location.isAuthorized { UserAnnotation() }
+            if location.isAuthorized {
+                UserAnnotation { user in
+                    RoadarLocationMarker()
+                        .onChange(of: user.location, initial: true) { _, fix in
+                            // Frame the same location MapKit is actually displaying, even
+                            // while the separate guidance location service is acquiring GPS.
+                            mapLocation = fix
+                            refreshFollowingCamera()
+                        }
+                }
+            }
             if mode == .walking && preview.destination == nil {
                 ForEach(Array(nearby.places.enumerated()), id: \.offset) { _, place in
                     Annotation(place.name ?? "Nearby place", coordinate: place.location.coordinate) {
@@ -51,8 +67,10 @@ struct ContentView: View {
                 }
             }
             if let destination = preview.destination {
-                Marker(destination.name ?? "Destination", coordinate: destination.location.coordinate)
-                    .tint(.orange)
+                Annotation(destination.name ?? "Destination", coordinate: destination.location.coordinate, anchor: .bottom) {
+                    RoadarDestinationMarker(name: destination.name ?? "Destination")
+                }
+                .annotationTitles(.hidden)
             }
             if let route = trip.route {
                 MapPolyline(route.polyline).stroke(RoadarTheme.accent, lineWidth: 7)
@@ -64,11 +82,19 @@ struct ContentView: View {
         }
         .mapStyle(.standard(
             elevation: .flat,
+            emphasis: .muted,
             pointsOfInterest: mode == .walking ? .all : .excludingAll,
             showsTraffic: mode == .driving
         ))
-        .mapControls { MapScaleView() }
-        .onMapCameraChange(frequency: .onEnd) { visibleRegion = $0.region }
+        .mapControls { }
+        // Apply only to the map, before attaching Roadar's panels and sheets.
+        // Retain color in traffic and route overlays instead of making the map monochrome.
+        .saturation(0.45)
+        .colorMultiply(RoadarTheme.mapTint)
+        .onMapCameraChange(frequency: .onEnd) { context in
+            visibleRegion = context.region
+            anchorLocation(using: proxy, camera: context.camera, frame: geometry.frame(in: .global))
+        }
         .sheet(isPresented: $showsSearch) {
             searchSheet
         }
@@ -76,6 +102,7 @@ struct ContentView: View {
         .sheet(isPresented: $showsSettings) { RoutePolicyView(trip: trip) }
         .safeAreaInset(edge: .top, spacing: 0) {
             header
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { headerFrame = $0 }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(alignment: .trailing, spacing: 14) {
@@ -84,18 +111,19 @@ struct ContentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 10)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bottomFrame = $0 }
+        }
+        .task(id: CGSize(width: headerFrame.maxY, height: bottomFrame.minY)) {
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            refreshFollowingCamera()
+        }
+        .onChange(of: geometry.size) { _, _ in refreshFollowingCamera() }
         }
         }
         .background(RoadarTheme.background)
         .preferredColorScheme(.dark)
         .tint(RoadarTheme.accent)
         .task { await offlineRoads.load() }
-        .task {
-            while !Task.isCancelled {
-                await trip.tick(location.isAuthorized ? location.location : nil)
-                do { try await Task.sleep(for: .seconds(5)) } catch { break }
-            }
-        }
         .task(id: scenePhase == .active && mode == .driving) {
             guard scenePhase == .active && mode == .driving else { return }
             while !Task.isCancelled {
@@ -104,16 +132,14 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            trip.setForeground(scenePhase == .active)
+            session.setPhoneActive(scenePhase == .active)
             location.setNavigating(trip.isActive)
             location.setPreparingRoute(preview.destination != nil)
             location.setDriving(mode == .driving)
-            location.setActive(scenePhase == .active)
             if location.isAuthorized { recenter() }
         }
         .onChange(of: scenePhase) { _, phase in
-            location.setActive(phase == .active)
-            trip.setForeground(phase == .active)
+            session.setPhoneActive(phase == .active)
             if phase != .active { nearby.reset(); workZones.pause(); offlineRoads.update(nil) }
             else { refreshNearby() }
         }
@@ -121,6 +147,7 @@ struct ContentView: View {
             if location.isAuthorized {
                 recenter()
             } else {
+                mapLocation = nil
                 position = .region(Self.startRegion)
                 nearby.reset()
                 trip.update(nil)
@@ -140,10 +167,11 @@ struct ContentView: View {
             refreshNearby()
         }
         .onChange(of: location.heading) { _, _ in
-            if followsHeading && !position.positionedByUser && (preview.destination == nil || trip.isActive) { followLocation() }
+            if mode == .walking && followsHeading && !position.positionedByUser && (preview.destination == nil || trip.isActive) { followLocation() }
         }
         .onChange(of: mode) { _, newMode in
             location.setDriving(newMode == .driving)
+            forwardCamera = ForwardMapCamera()
             offlineRoads.update(newMode == .driving && scenePhase == .active && location.isAuthorized ? location.location : nil)
             if newMode != .driving { workZones.pause() }
             preview.clearRoutes()
@@ -222,6 +250,70 @@ struct ContentView: View {
     }
 
     private func controls(maxHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { compactControls.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    Capsule().fill(RoadarTheme.secondary.opacity(0.5)).frame(width: 28, height: 4)
+                    Text(compactControls ? "Show details" : "More map")
+                        .font(.caption.weight(.semibold))
+                    Image(systemName: compactControls ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.bold))
+                }
+                .foregroundStyle(RoadarTheme.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("toggleMapDetails")
+            .accessibilityLabel(compactControls ? "Expand bottom menu" : "Minimize bottom menu")
+            .accessibilityValue(compactControls ? "Minimized" : "Expanded")
+            .gesture(DragGesture(minimumDistance: 15).onEnded { value in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    compactControls = value.translation.height > 0
+                }
+            })
+            if compactControls {
+                VStack(alignment: .leading, spacing: 8) {
+                    if trip.isActive {
+                        compactGuidance
+                    } else {
+                        travelModePicker
+                    }
+                }
+                .padding(.horizontal, 12).padding(.bottom, 12)
+            } else {
+                expandedControls(maxHeight: maxHeight - 44)
+            }
+        }
+        .roadarSurface()
+    }
+
+    private var compactGuidance: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let engine = trip.engine {
+                switch engine.state {
+                case .following:
+                    Text(engine.nextManeuver?.instruction ?? "Continue to the route endpoint")
+                        .font(.headline).lineLimit(2)
+                    if let maneuver = engine.nextManeuver {
+                        Text("In \(Measurement(value: max(0, maneuver.distance - engine.progress), unit: UnitLength.meters).formatted(.measurement(width: .abbreviated, usage: .road)))")
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(RoadarTheme.accent)
+                    }
+                case .arrived: Text("You’ve arrived").font(.headline)
+                case .offRoute: Text("Off route · Finding a route").font(.headline)
+                case .locating, .uncertain: Text("Confirming your position…").font(.headline)
+                }
+            }
+            if let message = trip.message {
+                Text(message).font(.caption).foregroundStyle(RoadarTheme.secondary).lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func expandedControls(maxHeight: CGFloat) -> some View {
         ScrollView {
         VStack(alignment: .leading, spacing: 18) {
             travelModePicker
@@ -261,12 +353,11 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(.horizontal, 20).padding(.bottom, 20)
         }
         .scrollBounceBehavior(.basedOnSize)
         .frame(maxHeight: maxHeight)
         .fixedSize(horizontal: false, vertical: true)
-        .roadarSurface()
     }
 
     private var travelModePicker: some View {
@@ -282,6 +373,7 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(option == .walking ? "walkingMode" : "drivingMode")
                 .accessibilityAddTraits(mode == option ? .isSelected : [])
+                .disabled(session.carPlayConnected && option == .walking)
             }
         }
         .padding(4)
@@ -472,19 +564,50 @@ struct ContentView: View {
         followLocation()
     }
 
+    // Camera-only fallback. Route preparation and guidance still use LocationStore's
+    // validated fixes and retain all their freshness and accuracy requirements.
+    private var displayedLocation: CLLocation? {
+        [mapLocation, location.location].compactMap { $0 }
+            .filter { CLLocationCoordinate2DIsValid($0.coordinate) && $0.horizontalAccuracy >= 0 }
+            .max { $0.timestamp < $1.timestamp }
+    }
+
+    private func refreshFollowingCamera() {
+        if !position.positionedByUser && (preview.destination == nil || trip.isActive) {
+            followLocation()
+        }
+    }
+
+    private func anchorLocation(using proxy: MapProxy, camera: MapCamera, frame: CGRect) {
+        guard !position.positionedByUser, preview.destination == nil || trip.isActive,
+              location.isAuthorized, let fix = displayedLocation,
+              headerFrame.height > 0, bottomFrame.height > 0,
+              let userPoint = proxy.convert(fix.coordinate, to: .global),
+              let centerPoint = proxy.convert(camera.centerCoordinate, to: .global) else { return }
+        let anchor = ForwardMapCamera.anchor(in: frame.size,
+            topInset: headerFrame.maxY - frame.minY, bottomInset: frame.maxY - bottomFrame.minY)
+        let target = CGPoint(x: frame.minX + anchor.x, y: frame.minY + anchor.y)
+        let delta = CGSize(width: userPoint.x - target.x, height: userPoint.y - target.y)
+        // Correct using the actual map projection, so zoom, latitude and panel size
+        // cannot change the user's screen anchor. The tolerance stops feedback loops.
+        guard abs(delta.width) > 2 || abs(delta.height) > 2,
+              let center = proxy.convert(CGPoint(x: centerPoint.x + delta.width,
+                                                  y: centerPoint.y + delta.height), from: .global) else { return }
+        position = .camera(MapCamera(centerCoordinate: center, distance: camera.distance,
+                                     heading: camera.heading, pitch: camera.pitch))
+    }
+
     private func followLocation() {
-        guard let fix = location.location, abs(fix.timestamp.timeIntervalSinceNow) <= 30 else {
-            position = .userLocation(followsHeading: followsHeading, fallback: .region(Self.startRegion))
+        guard let fix = displayedLocation else {
+            position = .userLocation(followsHeading: followsHeading && mode == .walking, fallback: .region(Self.startRegion))
             return
         }
-        let driving = mode == .driving
-        let course = driving && fix.speed > 1.5 && fix.course >= 0 ? fix.course : location.heading ?? 0
-        let distance = driving ? min(2400, max(700, max(0, fix.speed) * 65)) : 550
-        position = .camera(MapCamera(centerCoordinate: fix.coordinate, distance: distance,
-                                     heading: followsHeading ? course : 0, pitch: 0))
+        position = .camera(forwardCamera.camera(for: fix, heading: location.heading,
+                                                driving: mode == .driving, forward: followsHeading))
     }
 
     private func selectPlace(_ place: MKMapItem) {
+        compactControls = false
         preview.select(place)
         position = .region(MKCoordinateRegion(center: place.location.coordinate,
             latitudinalMeters: 1800, longitudinalMeters: 1800))

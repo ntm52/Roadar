@@ -64,6 +64,57 @@ final class RoadarUITests: XCTestCase {
     }
 
     @MainActor
+    func testLocationSitsBelowMapCenter() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let marker = app.descendants(matching: .any)["userLocationMarker"].firstMatch
+        XCTAssertTrue(marker.waitForExistence(timeout: 15), "Provide a simulated location before running this camera test")
+        let toggle = app.buttons["toggleMapDetails"]
+        if toggle.value as? String == "Minimized" { toggle.tap() }
+        app.buttons["drivingMode"].tap()
+        app.buttons["recenter"].tap()
+        func assertLowerAnchor() {
+            let lowerAnchor = NSPredicate { _, _ in
+                let top = app.buttons["searchPlaces"].frame.maxY
+                let bottom = app.buttons["recenter"].frame.minY
+                let y = marker.frame.midY
+                return y > top + (bottom - top) * 0.62 && y < bottom
+            }
+            let pending = XCTNSPredicateExpectation(predicate: lowerAnchor, object: app)
+            let result = XCTWaiter.wait(for: [pending], timeout: 10)
+            XCTAssertEqual(result, .completed, "Location \(marker.frame), search \(app.buttons["searchPlaces"].frame), recenter \(app.buttons["recenter"].frame)")
+        }
+        assertLowerAnchor()
+        attachScreenshot("Lower location expanded", app: app)
+        toggle.tap()
+        assertLowerAnchor()
+        attachScreenshot("Lower location compact", app: app)
+        toggle.tap()
+    }
+
+    @MainActor
+    func testCompactMapMenu() throws {
+        let app = XCUIApplication()
+        app.launch()
+        let toggle = app.buttons["toggleMapDetails"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        if toggle.value as? String == "Minimized" { toggle.tap() }
+        let expandedTop = toggle.frame.minY
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "Minimized")
+        XCTAssertGreaterThan(toggle.frame.minY, expandedTop)
+        XCTAssertTrue(app.buttons["walkingMode"].exists)
+        XCTAssertTrue(app.buttons["recenter"].exists)
+        attachScreenshot("Compact map", app: app)
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        XCTAssertEqual(toggle.value as? String, "Minimized")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "Expanded")
+    }
+
+    @MainActor
     func testRoutePreferencesPersistAfterRelaunch() throws {
         let app = XCUIApplication()
         app.launch()

@@ -30,6 +30,12 @@ final class LocationStore: NSObject, CLLocationManagerDelegate {
         manager.requestWhenInUseAuthorization()
     }
 
+    func setCarPlayConnected(_ connected: Bool) {
+        manager.allowsBackgroundLocationUpdates = connected
+        manager.pausesLocationUpdatesAutomatically = !connected
+        manager.showsBackgroundLocationIndicator = connected
+    }
+
     func setActive(_ active: Bool) {
         isActive = active
         updateMonitoring()
